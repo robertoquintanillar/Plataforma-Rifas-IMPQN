@@ -131,32 +131,44 @@ function db() {
 }
 
 // ─── Resend email ─────────────────────────────────────────────────────────────
-async function sendEmail({ nombre, email, numeros, total }) {
+async function sendEmail({ nombre, email, numeros, total, rifaActiva }) {
   try {
     const numsStr = numeros.map(n=>pad(n)).join(", ");
+    
+    // ─── GENERACIÓN DINÁMICA DE LA LISTA DE PREMIO(S) ─────────────────────────
+    const premiosHtml = rifaActiva.premios && rifaActiva.premios.length > 0
+      ? rifaActiva.premios.map((premio, idx) => `
+          <div style="margin-bottom:10px;font-size:14px;">
+            <strong>🎁 Premio ${idx + 1}:</strong> ${premio}
+          </div>`).join('')
+      : `<div style="margin-bottom:10px;font-size:14px;"><strong>🎁 Premios:</strong> Por definir</div>`;
+
     const html = `
 <div style="font-family:Georgia,serif;max-width:520px;margin:0 auto;background:#faf7f0;border-radius:16px;overflow:hidden;border:1px solid #e0d5c0;">
   <div style="background:#0d1b3e;padding:28px;text-align:center;">
     <div style="font-size:36px;color:#c9a84c;">✝</div>
     <h2 style="color:#fff;margin:8px 0 0;font-size:20px;">${CONFIG.nombreIglesia}</h2>
-    <p style="color:rgba(255,255,255,0.55);margin:4px 0 0;font-size:12px;letter-spacing:2px;">RIFA BENÉFICA CONTRUCCIÓN NUEVO TEMPLO</p>
+    <p style="color:rgba(255,255,255,0.55);margin:4px 0 0;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${rifaActiva.titulo}</p>
   </div>
   <div style="padding:28px;">
     <h3 style="color:#0d1b3e;margin:0 0 12px;">¡Hola, ${nombre.split(" ")[0]}! 🎉</h3>
-    <p style="color:#555;line-height:1.7;">Recibimos tu participación en la rifa. Verificaremos tu transferencia y te confirmaremos en las próximas 24 horas.</p>
+    <p style="color:#555;line-height:1.7;">Recibimos tu participación en la rifa pro-fondos: <strong>${rifaActiva.motivo}</strong>. Verificaremos tu transferencia y te confirmaremos en las próximas 24 horas.</p>
+    
     <div style="background:#fff;border-radius:12px;padding:20px;margin:20px 0;border:1px solid #e0d5c0;">
-      <div style="margin-bottom:10px;font-size:14px;"><strong>🔢 Tus números:</strong><br><span style="color:#c9a84c;font-family:monospace;font-size:13px;">${numsStr}</span></div>
+      <div style="margin-bottom:10px;font-size:14px;"><strong>🔢 Tus números:</strong><br><span style="color:#c9a84c;font-family:monospace;font-size:14px;font-weight:bold;">${numsStr}</span></div>
       <div style="margin-bottom:10px;font-size:14px;"><strong>💰 Total:</strong> ${formatCLP(total)}</div>
-      <div style="margin-bottom:10px;font-size:14px;"><strong>🎁 Premio 1:</strong> ${CONFIG.premio1}</div>
-      <div style="margin-bottom:10px;font-size:14px;"><strong>🎁 Premio 2:</strong> ${CONFIG.premio2}</div>
-      <div style="margin-bottom:10px;font-size:14px;"><strong>🎁 Premio 3:</strong> ${CONFIG.premio3}</div>
-      <div style="font-size:14px;"><strong>📅 Sorteo:</strong> ${CONFIG.fechaSorteo}</div>
+      
+      ${premiosHtml}
+      
+      <div style="font-size:14px;margin-top:10px;"><strong>📅 Sorteo:</strong> ${rifaActiva.fecha_sorteo}</div>
     </div>
+    
     <p style="color:#e67e22;font-size:13px;background:#fff8e1;padding:12px;border-radius:8px;">⏳ <strong>Estado actual:</strong> Pendiente de verificación de pago</p>
     <hr style="border:1px solid #e0d5c0;margin:24px 0;">
     <p style="color:#bbb;font-size:11px;text-align:center;">${CONFIG.nombreIglesia} · Dios te bendiga 🙏</p>
   </div>
 </div>`;
+
     await fetch("/api/send-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -338,8 +350,9 @@ function PantallaSeleccionRifas({ rifas, onSelect }) {
                 <div>📅 Sorteo: <strong>{rifa.fecha_sorteo}</strong></div>
               </div>
 
-              <div style={{ fontSize: 13, color: "#666" }}>
-                🎁 <strong>Premios principales:</strong> {rifa.premio1} {rifa.premio2 ? `· ${rifa.premio2}` : ''} {rifa.premio3 ? `· ${rifa.premio3}` : ''}
+              {/* ─── LISTADO DE PREMIOS UNIDOS POR PUNTOS DINÁMICOS ────────────────── */}
+              <div style={{ fontSize: 13, color: "#666", lineHeight: 1.5 }}>
+                🎁 <strong>Premios:</strong> {rifa.premios && rifa.premios.length > 0 ? rifa.premios.join(' · ') : 'Por definir'}
               </div>
 
               <button 
@@ -494,10 +507,23 @@ function SelectView({ tomados, selected, toggle, total, rifaActiva, onContinue, 
         <h1 style={S.heroTitle}>{rifaActiva.titulo}</h1>
         <div style={{ height: 1, background: "rgba(255,255,255,0.15)", margin: "14px 0" }} />
         
-        {rifaActiva.premio1 && <h2 style={{ ...S.heroTitle, fontSize: 19 }}>🎁 1° Premio: {rifaActiva.premio1}</h2>}
-        {rifaActiva.premio2 && <h3 style={{ ...S.heroTitle, fontSize: 16, opacity: 0.9 }}>🎁 2° Premio: {rifaActiva.premio2}</h3>}
-        {rifaActiva.premio3 && <p style={{ ...S.heroTitle, fontSize: 14, opacity: 0.8 }}>🎁 3° Premio: {rifaActiva.premio3}</p>}
-        <p style={{ ...S.heroDate, marginTop: 10, marginBottom: 14 }}>Sorteo: {rifaActiva.fecha_sorteo}</p>
+        {/* ─── RENDERIZADO DINÁMICO DE N PREMIOS CON JERARQUÍA VISUAL ─── */}
+        {rifaActiva.premios && rifaActiva.premios.map((premio, idx) => (
+          <h2 
+            key={idx} 
+            style={{ 
+              ...S.heroTitle, 
+              fontSize: idx === 0 ? 20 : idx === 1 ? 17 : 14, 
+              opacity: idx === 0 ? 1 : idx === 1 ? 0.9 : 0.8,
+              marginTop: 4,
+              fontWeight: idx === 0 ? "700" : "400"
+            }}
+          >
+            🎁 {idx + 1}° Premio: {premio}
+          </h2>
+        ))}
+
+        <p style={{ ...S.heroDate, marginTop: 14, marginBottom: 14 }}>Sorteo: {rifaActiva.fecha_sorteo}</p>
 
         <div style={S.progressWrap}>
           <div style={S.progressBar}>
@@ -711,10 +737,15 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
           <div style={{ fontWeight: "bold", color: navy, borderBottom: "1px solid #e0d5c0", paddingBottom: 4, marginBottom: 4 }}>
             📋 Detalles de tu compra — {rifaActiva.titulo}
           </div>
-          {rifaActiva.premio1 && <div>🎁 1° Premio: <strong>{rifaActiva.premio1}</strong></div>}
-          {rifaActiva.premio2 && <div>🎁 2° Premio: <strong>{rifaActiva.premio2}</strong></div>}
-          {rifaActiva.premio3 && <div>🎁 3° Premio: <strong>{rifaActiva.premio3}</strong></div>}
-          <div>📅 Fecha Sorteo: <strong>{rifaActiva.fecha_sorteo}</strong></div>
+          
+          {/* ─── RENDERIZADO DINÁMICO DE N PREMIOS EN EL RESUMEN DE COMPRA ─── */}
+          {rifaActiva.premios && rifaActiva.premios.map((premio, idx) => (
+            <div key={idx}>
+              🎁 {idx + 1}° Premio: <strong>{premio}</strong>
+            </div>
+          ))}
+          
+          <div style={{ marginTop: 4 }}>📅 Fecha Sorteo: <strong>{rifaActiva.fecha_sorteo}</strong></div>
           <div>💰 Total Cooperación: <strong>{formatCLP(total)}</strong></div>
         </div>
         <p style={{ color: "#aaa", fontSize: 12, margin: "16px 0" }}>Te notificaremos por WhatsApp y correo electrónico.</p>
