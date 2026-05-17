@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ⚙️  CONFIGURACIÓN — Edita estos valores antes de publicar
@@ -55,19 +55,19 @@ const rose = "#c0392b";
 const formatCLP = (n) =>
   new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
 const pad = (n, len = 4) => String(n).padStart(len, "0");
-const isDemo = CONFIG.supabaseUrl.includes("TU_PROYECTO");
+// const isDemo = CONFIG.supabaseUrl.includes("TU_PROYECTO");
 
 // ─── Demo state ───────────────────────────────────────────────────────────────
-const DEMO_TAKEN = new Set([
+/* const DEMO_TAKEN = new Set([
   1,5,12,23,34,45,67,89,100,123,200,250,333,400,500,555,600,700,800,900,
   1000,1100,1200,1300,1400,1500,1600,1700,1800,1900,1999,2000,
   150,160,170,180,190,210,220,230,240,260,270,280,290,
-]);
-let demoPedidos = [
+]); */
+/* let demoPedidos = [
   { id:"d1", nombre:"María González", rut:"12.345.678-9", email:"maria@ejemplo.cl", telefono:"+56 9 8765 4321", numeros:[1,5,12], total:6000, estado:"confirmado", created_at: new Date(Date.now()-86400000).toISOString(), voucher_url:null },
   { id:"d2", nombre:"Pedro Soto", rut:"9.876.543-2", email:"pedro@ejemplo.cl", telefono:"+56 9 1234 5678", numeros:[23,34,45,67], total:8000, estado:"pendiente", created_at: new Date(Date.now()-3600000).toISOString(), voucher_url:null },
   { id:"d3", nombre:"Ana Muñoz", rut:"15.432.109-8", email:"ana@ejemplo.cl", telefono:"+56 9 5555 1234", numeros:[89,100,123,200,250], total:10000, estado:"rechazado", created_at: new Date(Date.now()-7200000).toISOString(), voucher_url:null },
-];
+]; */
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 // ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
