@@ -116,6 +116,12 @@ function db() {
         method:"PATCH", headers:h, body:JSON.stringify({estado})
       });
     },
+    // Copia y pega esta función dentro del return de db()
+    async updateVoucherUrl(id, voucher_url) {
+      await fetch(`${url}/rest/v1/pedidos?id=eq.${id}`, {
+        method:"PATCH", headers:h, body:JSON.stringify({voucher_url})
+      });
+    },
     async uploadVoucher(file, id) {
       const ext = file.name.split(".").pop();
       const path = `${id}.${ext}`;
@@ -403,7 +409,7 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
 
   const total = selected.size * rifaActiva.precio_por_numero;
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     const e = {};
     if (!form.nombre.trim()) e.nombre = "Requerido";
     if (!form.rut.trim()) e.rut = "Requerido";
@@ -429,6 +435,10 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
       
       const vUrl = await db().uploadVoucher(voucher, pedido.id);
       pedido.voucher_url = vUrl;
+      
+      // ─── NUEVA LÍNEA AGREGADA: Guarda el enlace real en la fila del pedido ───
+      await db().updateVoucherUrl(pedido.id, vUrl);
+      // ───────────────────────────────────────────────────────────────────────
       
       await db().marcarNumeros(nums, rifaActiva.id);
       await sendEmail({ ...form, numeros: nums, total, rifaActiva });
