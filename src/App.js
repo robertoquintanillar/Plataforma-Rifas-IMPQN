@@ -927,17 +927,22 @@ function AdminView({ listaRifas }) {
   );
 }
 
-// ─── COMPONENTE COMPLEMENTARIO: TARJETA DE PEDIDO INDIVIDUAL ─────────────────
+// ─── COMPONENTE: TARJETA DE PEDIDO CON PREVISUALIZACIÓN DE COMPROBANTE ───────
 function PedidoCard({ pedido, onCambiar, updating }) {
   const [open, setOpen] = useState(false);
+  
   const est = {
     confirmado: { bg: "#e8f5e9", c: emerald, lbl: "✅ Confirmado" },
     pendiente: { bg: "#fff8e1", c: "#e67e22", lbl: "⏳ Pendiente" },
     rechazado: { bg: "#fde8e8", c: rose, lbl: "❌ Rechazado" },
   }[pedido.estado] || { bg: "#eee", c: "#999", lbl: pedido.estado };
 
+  // Detectamos si el archivo del comprobante es un PDF o una Imagen
+  const esPdf = pedido.voucher_url?.toLowerCase().endsWith(".pdf");
+
   return (
     <div style={S.pedidoCard}>
+      {/* Cabecera de la tarjeta */}
       <div style={S.pedidoHead} onClick={() => setOpen(!open)}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={S.pedidoNombre}>{pedido.nombre}</div>
@@ -951,25 +956,86 @@ function PedidoCard({ pedido, onCambiar, updating }) {
           <div style={{ ...S.estadoBadge, background: est.bg, color: est.c }}>{est.lbl}</div>
           <div style={{ fontWeight: 900, color: navy, fontSize: 15, marginTop: 4 }}>{formatCLP(pedido.total)}</div>
           <div style={{ color: "#ccc", fontSize: 11 }}>{new Date(pedido.created_at).toLocaleString("es-CL")}</div>
-          <div style={{ color: "#bbb", fontSize: 11, marginTop: 2 }}>{open ? "▲" : "▼"} {open ? "Cerrar" : "Ver detalles"}</div>
+          <div style={{ color: gold, fontSize: 11, marginTop: 4, fontWeight: "bold" }}>
+            {open ? "▲ Ocultar" : "▼ Revisar Comprobante"}
+          </div>
         </div>
       </div>
+
+      {/* Cuerpo desplegable con los detalles y el archivo visible */}
       {open && (
         <div style={S.pedidoBody} className="fade">
           <div style={S.detailGrid}>
             <div style={S.detailRow}><span style={S.detailK}>RUT</span><span>{pedido.rut}</span></div>
-            <div style={S.detailRow}><span style={S.detailK}>Números ({(pedido.numeros || []).length})</span><span style={{ fontFamily: "monospace", fontSize: 12 }}>{(pedido.numeros || []).map(pad).join(", ")}</span></div>
-            {pedido.voucher_url && (
-              <div style={S.detailRow}><span style={S.detailK}>Comprobante</span><a href={pedido.voucher_url} target="_blank" rel="noreferrer" style={{ color: gold, fontWeight: 700 }}>Ver archivo ↗</a></div>
-            )}
+            <div style={S.detailRow}>
+              <span style={S.detailK}>Números ({(pedido.numeros || []).length})</span>
+              <span style={{ fontFamily: "monospace", fontSize: 12 }}>{(pedido.numeros || []).map(pad).join(", ")}</span>
+            </div>
           </div>
+
+          {/* 🖼️ SECCIÓN DE PREVISUALIZACIÓN INCORPORADA */}
+          {pedido.voucher_url ? (
+            <div style={{ 
+              marginTop: 14, 
+              marginBottom: 16, 
+              background: "#faf7f0", 
+              border: `1px solid ${gold}44`, 
+              borderRadius: 12, 
+              padding: 10, 
+              textAlign: "center" 
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: navy, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                📄 Comprobante de Pago Adjunto:
+              </div>
+              
+              {esPdf ? (
+                /* Vista para archivos PDF (usa un visor interactivo integrado) */
+                <iframe 
+                  src={pedido.voucher_url} 
+                  title="Visor Comprobante PDF" 
+                  style={{ width: "100%", height: "350px", border: "none", borderRadius: 8, background: "#fff" }} 
+                />
+              ) : (
+                /* Vista para imágenes normales (JPG, PNG) */
+                <img 
+                  src={pedido.voucher_url} 
+                  alt="Comprobante de transferencia" 
+                  style={{ maxWidth: "100%", maxHeight: "380px", objectFit: "contain", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} 
+                />
+              )}
+              
+              <div style={{ marginTop: 8 }}>
+                <a href={pedido.voucher_url} target="_blank" rel="noreferrer" style={{ color: gold, fontWeight: 700, fontSize: 12, textDecoration: "underline" }}>
+                  Ver en pantalla completa ↗
+                </a>
+              </div>
+            </div>
+          ) : (
+            <div style={{ color: rose, fontSize: 13, padding: "10px 0", fontWeight: "bold" }}>
+              ⚠️ Alerta: Este pedido no registra un archivo de comprobante.
+            </div>
+          )}
+
+          {/* Botoneras de decisión justo debajo de la foto */}
           <div style={S.actionRow}>
             {pedido.estado === "pendiente" && <>
-              <button style={{ ...S.btnAction, background: emerald }} disabled={updating} onClick={() => onCambiar(pedido.id, "confirmado")}>{updating ? "..." : "✅ Confirmar pago"}</button>
-              <button style={{ ...S.btnAction, background: rose }} disabled={updating} onClick={() => onCambiar(pedido.id, "rechazado")}>{updating ? "..." : "❌ Rechazar"}</button>
+              <button style={{ ...S.btnAction, background: emerald }} disabled={updating} onClick={() => onCambiar(pedido.id, "confirmado")}>
+                {updating ? "..." : "✅ Confirmar depósito"}
+              </button>
+              <button style={{ ...S.btnAction, background: rose }} disabled={updating} onClick={() => onCambiar(pedido.id, "rechazado")}>
+                {updating ? "..." : "❌ Rechazar / Datos incorrectos"}
+              </button>
             </>}
-            {pedido.estado === "confirmado" && <button style={{ ...S.btnAction, background: rose }} disabled={updating} onClick={() => onCambiar(pedido.id, "rechazado")}>❌ Marcar rechazado</button>}
-            {pedido.estado === "rechazado" && <button style={{ ...S.btnAction, background: "#888" }} disabled={updating} onClick={() => onCambiar(pedido.id, "pendiente")}>↩️ Volver a pendiente</button>}
+            {pedido.estado === "confirmado" && (
+              <button style={{ ...S.btnAction, background: rose, width: "100%" }} disabled={updating} onClick={() => onCambiar(pedido.id, "rechazado")}>
+                ❌ Deshacer aprobación y marcar como rechazado
+              </button>
+            )}
+            {pedido.estado === "rechazado" && (
+              <button style={{ ...S.btnAction, background: "#888", width: "100%" }} disabled={updating} onClick={() => onCambiar(pedido.id, "pendiente")}>
+                ↩️ Reabrir y volver a dejar en Pendiente
+              </button>
+            )}
           </div>
         </div>
       )}
