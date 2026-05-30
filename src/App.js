@@ -138,6 +138,43 @@ const validateRUT = (rutCompleto) => {
 };
 // ─── FIN VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
 
+// ─── FORMATEADOR Y MÁSCARA DE CELULAR CHILENO (+56 9 XXXX XXXX) ───────────────
+const formatCelular = (value) => {
+  if (!value) return "+56 9 ";
+
+  // 1. Si el usuario intenta borrar el prefijo base "+56 9 ", no dejarlo
+  if (value.length < 7 && (value.includes("+56") || value.trim() === "+569")) {
+    return "+56 9 ";
+  }
+
+  // 2. Extraer solo los números de lo que escriba el usuario
+  let numeros = value.replace(/[^0-9]/g, "");
+
+  // 3. Si el usuario pegó o escribió el "56" o "569" al inicio, se los quitamos 
+  // para procesar puramente los 8 dígitos móviles restantes
+  if (numeros.startsWith("569")) {
+    numeros = numeros.slice(3);
+  } else if (numeros.startsWith("56") && numeros.length > 2) {
+    numeros = numeros.slice(2);
+  } else if (numeros.startsWith("9") && numeros.length > 1) {
+    numeros = numeros.slice(1);
+  }
+
+  // 4. Limitar el largo máximo a 8 dígitos (el "9" inicial va fijo en la máscara)
+  if (numeros.length > 8) {
+    numeros = numeros.slice(0, 8);
+  }
+
+  // 5. Ir armando la máscara dinámicamente: +56 9 XXXX XXXX
+  if (numeros.length === 0) {
+    return "+56 9 ";
+  } else if (numeros.length <= 4) {
+    return `+56 9 ${numeros}`;
+  } else {
+    return `+56 9 ${numeros.slice(0, 4)} ${numeros.slice(4)}`;
+  }
+};
+
 // ─── Supabase client ──────────────────────────────────────────────────────────
 // ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
 function db() {
@@ -538,7 +575,7 @@ const handleSubmit = async () => {
   if (step === "success") return (
     <SuccessView
       nombre={form.nombre} email={form.email} numeros={[...selected].sort((a, b) => a - b)} total={total} rifaActiva={rifaActiva}
-      onReset={() => { setStep("select"); setSelected(new Set()); setForm({ nombre: "", rut: "", email: "", telefono: "" }); setVoucher(null); setVoucherPreview(null); }}
+      onReset={() => { setStep("select"); setSelected(new Set()); setForm({ nombre: "", rut: "", email: "", telefono: "+56 9 " }); setVoucher(null); setVoucherPreview(null); }}
     />
   );
 
@@ -810,15 +847,22 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
     {errors.email && <span style={S.errMsg}>{errors.email}</span>}
   </div>
 
-  {/* 4. CAMPO TELÉFONO */}
+{/* 4. CAMPO TELÉFONO / WHATSAPP (MÁSCARA +56 9 FORZADA) */}
   <div style={S.fieldGroup}>
     <label style={S.label}>Teléfono / WhatsApp</label>
     <input 
       type="tel" 
       placeholder="+56 9 8765 4321" 
-      value={form.telefono}
+      value={form.telefono || "+56 9 "}
+      onFocus={e => {
+        // Si el campo está vacío al hacer clic, le pone el prefijo automáticamente
+        if (!form.telefono) setForm({ ...form, telefono: "+56 9 " });
+      }}
       onChange={e => {
-        setForm({ ...form, telefono: e.target.value });
+        const val = e.target.value;
+        const celularFormateado = formatCelular(val);
+        
+        setForm({ ...form, telefono: celularFormateado });
         setErrors({ ...errors, telefono: null });
       }}
       style={{...S.input,...(errors.telefono ? {borderColor:rose} : {})}}
