@@ -780,18 +780,21 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
     {errors.nombre && <span style={S.errMsg}>{errors.nombre}</span>}
   </div>
 
-  {/* 2. CAMPO RUT (MÁSCARA EN TIEMPO REAL FORZADA) */}
+{/* 2. CAMPO RUT (MÁSCARA EN TIEMPO REAL FORZADA CON REFRESCO DE MEMORIA) */}
   <div style={S.fieldGroup}>
     <label style={S.label}>RUT</label>
     <input 
+      key="rut-field-corregido"
       type="text" 
       placeholder="12.345.678-9" 
-      value={form.rut}
+      value={form.rut || ""} 
       onChange={e => {
-        // Ejecuta la máscara matemática al instante
-        const rutFormateado = formatRUT(e.target.value);
-        setForm({ ...form, rut: rutFormateado });
-        setErrors({ ...errors, rut: null });
+        const rawValue = e.target.value;
+        const rutFormateado = formatRUT(rawValue);
+        
+        // Forzamos la actualización inmediata del estado
+        setForm(prevForm => ({ ...prevForm, rut: rutFormateado }));
+        setErrors(prevErrors => ({ ...prevErrors, rut: null }));
       }}
       style={{...S.input,...(errors.rut ? {borderColor:rose} : {})}}
     />
