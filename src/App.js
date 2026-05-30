@@ -676,20 +676,26 @@ function SelectView({ tomados, selected, toggle, total, rifaActiva, onContinue, 
         <div style={{ height: 1, background: "rgba(255,255,255,0.15)", margin: "14px 0" }} />
         
         {/* ─── RENDERIZADO DINÁMICO DE N PREMIOS CON JERARQUÍA VISUAL ─── */}
-        {rifaActiva.premios && rifaActiva.premios.map((premio, idx) => (
-          <h2 
-            key={idx} 
-            style={{ 
-              ...S.heroTitle, 
-              fontSize: idx === 0 ? 20 : idx === 1 ? 17 : 14, 
-              opacity: idx === 0 ? 1 : idx === 1 ? 0.9 : 0.8,
-              marginTop: 4,
-              fontWeight: idx === 0 ? "700" : "400"
-            }}
-          >
-            🎁 {idx + 1}° Premio: {premio}
+        {rifaActiva && Array.isArray(rifaActiva.premios) && rifaActiva.premios.length > 0 ? (
+          rifaActiva.premios.map((premio, idx) => (
+            <h2 
+              key={idx} 
+              style={{ 
+                ...S.heroTitle, 
+                fontSize: idx === 0 ? 20 : idx === 1 ? 17 : 14, 
+                opacity: idx === 0 ? 1 : idx === 1 ? 0.9 : 0.8,
+                marginTop: 4,
+                fontWeight: idx === 0 ? "700" : "400"
+              }}
+            >
+              🎁 {idx + 1}° Premio: {premio}
+            </h2>
+          ))
+        ) : (
+          <h2 style={{ ...S.heroTitle, fontSize: 16, opacity: 0.7, marginTop: 4, fontWeight: "400" }}>
+            🎁 Premios: Por confirmar por la administración
           </h2>
-        ))}
+        )}
 
         <p style={{ ...S.heroDate, marginTop: 14, marginBottom: 14 }}>Sorteo: {rifaActiva.fecha_sorteo}</p>
 
