@@ -1272,18 +1272,19 @@ function AdminView({ listaRifas }) {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              {/* SEGUNDA FILA: PRECIO, TOTAL Y FECHA */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", width: "100%" }}>
                 <div style={S.fieldGroup}>
                   <label style={S.label}>Precio por Número ($)</label>
-                  <input type="number" value={rifaForm.precio_por_numero} onChange={e => setRifaForm({ ...rifaForm, precio_por_numero: e.target.value })} style={S.input} required />
+                  <input type="number" value={rifaForm.precio_por_numero} onChange={e => setRifaForm({ ...rifaForm, precio_por_numero: e.target.value })} style={{...S.input, width: "100%"}} required />
                 </div>
                 <div style={S.fieldGroup}>
-                  <label style={S.label}>Total Números Disponibles</label>
-                  <input type="number" value={rifaForm.total_numeros} onChange={e => setRifaForm({ ...rifaForm, total_numeros: e.target.value })} style={S.input} required />
+                  <label style={S.label}>Total Números</label>
+                  <input type="number" value={rifaForm.total_numeros} onChange={e => setRifaForm({ ...rifaForm, total_numeros: e.target.value })} style={{...S.input, width: "100%"}} required />
                 </div>
                 <div style={S.fieldGroup}>
                   <label style={S.label}>Fecha del Sorteo</label>
-                  <input type="text" placeholder="Ej: 24 de Diciembre 2026" value={rifaForm.fecha_sorteo} onChange={e => setRifaForm({ ...rifaForm, fecha_sorteo: e.target.value })} style={S.input} required />
+                  <input type="text" placeholder="Ej: 24/12/2026" value={rifaForm.fecha_sorteo} onChange={e => setRifaForm({ ...rifaForm, fecha_sorteo: e.target.value })} style={{...S.input, width: "100%"}} required />
                 </div>
               </div>
 
