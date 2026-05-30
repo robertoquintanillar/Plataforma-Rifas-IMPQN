@@ -229,6 +229,29 @@ function db() {
         method:"PATCH", headers:h, body:JSON.stringify({estado})
       });
     },
+    // Trae todas las rifas creadas en el sistema
+    async getRifas() {
+      const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers:h });
+      return r.json();
+    },
+    // ─── NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
+    async insertRifa(rifa) {
+      const r = await fetch(`${url}/rest/v1/rifas`, {
+        method: "POST", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify(rifa)
+      });
+      return r.json();
+    },
+    async updateRifa(id, rifa) {
+      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
+        method: "PATCH", headers: h, body: JSON.stringify(rifa)
+      });
+    },
+    async deleteRifa(id) {
+      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
+        method: "DELETE", headers: h
+      });
+    },
+    // ─── FIN NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
     // Copia y pega esta función dentro del return de db()
     async updateVoucherUrl(id, voucher_url) {
       await fetch(`${url}/rest/v1/pedidos?id=eq.${id}`, {
@@ -245,7 +268,7 @@ function db() {
       });
       if(!r.ok) throw new Error("Error subiendo comprobante");
       return `${url}/storage/v1/object/public/comprobantes/${path}`;
-    }
+    }    
   };
 }
 
@@ -970,6 +993,10 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 
 // ─── PANEL DE ADMINISTRACIÓN GLOBAL CONSOLIDADO Y FILTRADO ───────────────────
 function AdminView({ listaRifas }) {
+  const [tab, setTab] = useState("comprobantes"); // "comprobantes" o "campanas"
+  const [rifasLocales, setRifasLocales] = useState(listaRifas || []);
+  
+  // Estados para los Pedidos/Comprobantes
   const [pedidos, setPedidos] = useState([]);
   const [todosLosPedidos, setTodosLosPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -980,7 +1007,12 @@ function AdminView({ listaRifas }) {
   const [adminPage, setAdminPage] = useState(0);
   const ADMIN_PER_PAGE = 20;
 
-  // Consultar recaudación total de todas las campañas juntas
+  // Estados para el Formulario de Rifas (Mantenedor)
+  const [editandoId, setEditandoId] = useState(null); // null = creando nueva
+  const [rifaForm, setRifaForm] = useState({
+    titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true
+  });
+
   const cargarTotalesGlobales = useCallback(async () => {
     try {
       const data = await db().getTodosLosPedidos();
@@ -988,7 +1020,6 @@ function AdminView({ listaRifas }) {
     } catch (e) { console.error(e); }
   }, []);
 
-  // Consultar las ventas específicas de la rifa seleccionada en el menú
   const fetchPedidos = useCallback(async () => {
     if (!rifaSeleccionada) return;
     setLoading(true);
@@ -999,13 +1030,20 @@ function AdminView({ listaRifas }) {
     setLoading(false);
   }, [rifaSeleccionada]);
 
-  useEffect(() => {
-    cargarTotalesGlobales();
-  }, [cargarTotalesGlobales]);
+  const refrescarRifas = async () => {
+    try {
+      const data = await db().getRifas();
+      setRifasLocales(data || []);
+      if (data && data.length && !rifaSeleccionada) {
+        setRifaSeleccionada(data[0].id);
+      }
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
+    cargarTotalesGlobales();
     fetchPedidos();
-  }, [fetchPedidos]);
+  }, [cargarTotalesGlobales, fetchPedidos]);
 
   const cambiarEstado = async (id, estado) => {
     setUpdating(id);
@@ -1013,6 +1051,70 @@ function AdminView({ listaRifas }) {
     await fetchPedidos();
     await cargarTotalesGlobales();
     setUpdating(null);
+  };
+
+  // Lógica de Guardar Rifa (Crear o Modificar)
+  const handleGuardarRifa = async (e) => {
+    e.preventDefault();
+    if (!rifaForm.titulo.trim() || !rifaForm.fecha_sorteo.trim()) {
+      alert("Título y Fecha de Sorteo son obligatorios");
+      return;
+    }
+
+    // Convertir la cadena de premios separada por comas en un Array limpio
+    const listaPremios = rifaForm.premios
+      ? rifaForm.premios.split(",").map(p => p.trim()).filter(p => p !== "")
+      : [];
+
+    const datosRifa = {
+      titulo: rifaForm.titulo,
+      motivo: rifaForm.motivo,
+      precio_por_numero: parseInt(rifaForm.precio_por_numero, 10),
+      total_numeros: parseInt(rifaForm.total_numeros, 10),
+      fecha_sorteo: rifaForm.fecha_sorteo,
+      premios: listaPremios,
+      activa: rifaForm.activa
+    };
+
+    try {
+      if (editandoId) {
+        await db().updateRifa(editandoId, datosRifa);
+        alert("Campaña actualizada con éxito");
+      } else {
+        await db().insertRifa(datosRifa);
+        alert("Nueva campaña creada con éxito");
+      }
+      setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true });
+      setEditandoId(null);
+      await refrescarRifas();
+    } catch (err) {
+      alert("Error al guardar la rifa: " + err.message);
+    }
+  };
+
+  const handleEliminarRifa = async (id, titulo) => {
+    if (window.confirm(`¿Estás completamente seguro de eliminar la rifa "${titulo}"?\nEsta acción no se puede deshacer.`)) {
+      try {
+        await db().deleteRifa(id);
+        alert("Rifa eliminada.");
+        await refrescarRifas();
+      } catch (err) {
+        alert("No se pudo eliminar la rifa. Es posible que tenga números vendidos asociados.");
+      }
+    }
+  };
+
+  const handleIniciarEditar = (rifa) => {
+    setEditandoId(rifa.id);
+    setRifaForm({
+      titulo: rifa.titulo || "",
+      motivo: rifa.motivo || "",
+      precio_por_numero: rifa.precio_por_numero || 3000,
+      total_numeros: rifa.total_numeros || 2000,
+      fecha_sorteo: rifa.fecha_sorteo || "",
+      premios: rifa.premios ? rifa.premios.join(", ") : "",
+      activa: rifa.activa === undefined ? true : rifa.activa
+    });
   };
 
   const filtrados = pedidos.filter(p => {
@@ -1025,115 +1127,201 @@ function AdminView({ listaRifas }) {
   const paginatedAdmin = filtrados.slice(adminPage * ADMIN_PER_PAGE, (adminPage + 1) * ADMIN_PER_PAGE);
   const adminPages = Math.ceil(filtrados.length / ADMIN_PER_PAGE);
 
-  // 💰 GANANCIAS EN CONJUNTO CONSOLIDADAS (De todas las rifas vendidas en total)
   const granTotalRecaudadoGlobal = todosLosPedidos
     .filter(p => p.estado !== "rechazado")
     .reduce((a, p) => a + (p.total || 0), 0);
 
-  // Totales de la campaña que se está mirando en este instante
   const totalRifaActual = pedidos.filter(p => p.estado !== "rechazado").reduce((a, p) => a + (p.total || 0), 0);
   const numerosVendidosRifaActual = pedidos.filter(p => p.estado !== "rechazado").reduce((a, p) => a + (p.numeros?.length || 0), 0);
-  const rifaInfoActual = listaRifas.find(r => r.id === rifaSeleccionada);
+  const rifaInfoActual = rifasLocales.find(r => r.id === rifaSeleccionada);
 
   return (
     <main style={S.main} className="fade">
       <h2 style={{ ...S.cardTitle, textAlign: "center", marginBottom: 4 }}>Panel de Administración</h2>
-      <p style={{ textAlign: "center", color: "#aaa", fontSize: 12, marginBottom: 24 }}>
-        Consolidado unificado multirifas · {new Date().toLocaleString("es-CL")}
+      <p style={{ textAlign: "center", color: "#aaa", fontSize: 12, marginBottom: 20 }}>
+        Consolidado unificado multirifas · Gestión Operativa
       </p>
 
-      {/* 📊 GANANCIAS EN CONJUNTO DE TODAS LAS RIFAS */}
-      <div style={{ 
-        background: `linear-gradient(135deg, ${emerald} 0%, #0e4e2e 100%)`, 
-        color: "#fff", 
-        borderRadius: 16, 
-        padding: 24, 
-        marginBottom: 24, 
-        textAlign: "center",
-        boxShadow: "0 6px 20px rgba(26,122,74,0.3)"
-      }}>
-        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.9, fontWeight: 700 }}>
-          ⛪ RECAUDACIÓN HISTÓRICA TOTAL CONSOLIDADA (Todas las Rifas)
-        </div>
-        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 900, marginTop: 4 }}>
-          {formatCLP(granTotalRecaudadoGlobal)}
-        </div>
-        <p style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-          Ingresos globales combinados de la iglesia (excluye transacciones rechazadas)
-        </p>
-      </div>
-
-      {/* ⚙️ MENÚ DESPLEGABLE: FILTRAR POR RIFA ESPECÍFICA */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 16, marginBottom: 24, border: "1px solid #e0d9cc" }}>
-        <label style={{ ...S.label, display: "block", marginBottom: 6, color: navy }}>Selecciona la Campaña a gestionar:</label>
-        <select 
-          value={rifaSeleccionada} 
-          onChange={e => { setRifaSeleccionada(e.target.value); setAdminPage(0); }} 
-          style={{ ...S.input, width: "100%", fontWeight: "bold", borderColor: gold, color: navy }}
+      {/* 🧭 BARRA DE PESTAÑAS (TABS) */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 24, borderBottom: "2px solid #e0d9cc", paddingBottom: 8 }}>
+        <button 
+          onClick={() => setTab("comprobantes")}
+          style={{ 
+            ...S.filtroBtn, 
+            flex: 1, 
+            padding: "10px", 
+            fontWeight: "bold",
+            background: tab === "comprobantes" ? CONFIG.colores.primario : "#fff",
+            color: tab === "comprobantes" ? "#fff" : "#777",
+            borderColor: tab === "comprobantes" ? CONFIG.colores.primario : "#e0d9cc"
+          }}
         >
-          {listaRifas.map(r => (
-            <option key={r.id} value={r.id}>
-              {r.titulo} ({r.motivo || "Campaña"})
-            </option>
-          ))}
-        </select>
+          📋 Ver Comprobantes
+        </button>
+        <button 
+          onClick={() => setTab("campanas")}
+          style={{ 
+            ...S.filtroBtn, 
+            flex: 1, 
+            padding: "10px", 
+            fontWeight: "bold",
+            background: tab === "campanas" ? CONFIG.colores.primario : "#fff",
+            color: tab === "campanas" ? "#fff" : "#777",
+            borderColor: tab === "campanas" ? CONFIG.colores.primario : "#e0d9cc"
+          }}
+        >
+          ⛪ Gestionar Campañas (Rifas)
+        </button>
       </div>
 
-      <h3 style={{ fontSize: 12, fontWeight: 700, color: navy, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
-        📈 Métricas de la campaña seleccionada
-      </h3>
-      <div style={S.kpiGrid}>
-        {[
-          { icon: "💵", val: formatCLP(totalRifaActual), lbl: "Recaudado Rifa", c: emerald },
-          { icon: "🎟️", val: numerosVendidosRifaActual.toLocaleString("es-CL"), lbl: "Números vendidos", c: navy },
-          { icon: "✅", val: pedidos.filter(p => p.estado === "confirmado").length, lbl: "Confirmados", c: emerald },
-          { icon: "⏳", val: pedidos.filter(p => p.estado === "pendiente").length, lbl: "Pendientes", c: "#e67e22" },
-          { icon: "❌", val: pedidos.filter(p => p.estado === "rechazado").length, lbl: "Rechazados", c: rose },
-          { icon: "📊", val: rifaInfoActual ? `${Math.round(numerosVendidosRifaActual / rifaInfoActual.total_numeros * 100)}%` : "0%", lbl: "Avance", c: gold },
-        ].map(({ icon, val, lbl, c }) => (
-          <div key={lbl} style={S.kpiCard}>
-            <div style={{ fontSize: 20 }}>{icon}</div>
-            <div style={{ ...S.kpiVal, color: c, fontSize: 14, marginTop: 2 }}>{val}</div>
-            <div style={S.kpiLbl}>{lbl}</div>
+      {/* ─── PESTAÑA 1: REVISIÓN DE COMPROBANTES (TU DISEÑO ORIGINAL) ─── */}
+      {tab === "comprobantes" && (
+        <>
+          <div style={{ background: `linear-gradient(135deg, ${emerald} 0%, #0e4e2e 100%)`, color: "#fff", borderRadius: 16, padding: 24, marginBottom: 24, textAlign: "center", boxShadow: "0 6px 20px rgba(26,122,74,0.3)" }}>
+            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, opacity: 0.9, fontWeight: 700 }}>⛪ RECAUDACIÓN HISTÓRICA TOTAL CONSOLIDADA (Todas las Rifas)</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, fontWeight: 900, marginTop: 4 }}>{formatCLP(granTotalRecaudadoGlobal)}</div>
           </div>
-        ))}
-      </div>
 
-      <div style={S.filterBar}>
-        <input placeholder="🔍 Buscar por nombre, RUT o email de esta campaña..." value={search}
-          onChange={e => { setSearch(e.target.value); setAdminPage(0); }} style={{ ...S.input, flex: 1, minWidth: 0 }} />
-        <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setAdminPage(0); }} style={{ ...S.input, width: 140 }}>
-          <option value="todos">Todos ({pedidos.length})</option>
-          <option value="pendiente">Pendientes ({pedidos.filter(p => p.estado === "pendiente").length})</option>
-          <option value="confirmado">Confirmados ({pedidos.filter(p => p.estado === "confirmado").length})</option>
-          <option value="rechazado">Rechazados ({pedidos.filter(p => p.estado === "rechazado").length})</option>
-        </select>
-        <button style={S.refreshBtn} onClick={() => { fetchPedidos(); cargarTotalesGlobales(); }} title="Actualizar">🔄</button>
-      </div>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 16, marginBottom: 24, border: "1px solid #e0d9cc" }}>
+            <label style={{ ...S.label, display: "block", marginBottom: 6, color: navy }}>Selecciona la Campaña a gestionar:</label>
+            <select value={rifaSeleccionada} onChange={e => { setRifaSeleccionada(e.target.value); setAdminPage(0); }} style={{ ...S.input, width: "100%", fontWeight: "bold", borderColor: gold, color: navy }}>
+              {rifasLocales.map(r => (
+                <option key={r.id} value={r.id}>{r.titulo} ({r.motivo || "Campaña"})</option>
+              ))}
+            </select>
+          </div>
 
-      <div style={{ color: "#aaa", fontSize: 12, marginBottom: 12 }}>
-        {filtrados.length} comprobante{filtrados.length !== 1 ? "s" : ""} en esta vista
-      </div>
+          <div style={S.kpiGrid}>
+            {[
+              { icon: "💵", val: formatCLP(totalRifaActual), lbl: "Recaudado Rifa", c: emerald },
+              { icon: "🎟️", val: numerosVendidosRifaActual.toLocaleString("es-CL"), lbl: "Números vendidos", c: navy },
+              { icon: "✅", val: pedidos.filter(p => p.estado === "confirmado").length, lbl: "Confirmados", c: emerald },
+              { icon: "⏳", val: pedidos.filter(p => p.estado === "pendiente").length, lbl: "Pendientes", c: "#e67e22" },
+              { icon: "❌", val: pedidos.filter(p => p.estado === "rechazado").length, lbl: "Rechazados", c: rose },
+              { icon: "📊", val: rifaInfoActual ? `${Math.round(numerosVendidosRifaActual / rifaInfoActual.total_numeros * 100)}%` : "0%", lbl: "Avance", c: gold },
+            ].map(({ icon, val, lbl, c }) => (
+              <div key={lbl} style={S.kpiCard}>
+                <div style={{ fontSize: 20 }}>{icon}</div>
+                <div style={{ ...S.kpiVal, color: c, fontSize: 14, marginTop: 2 }}>{val}</div>
+                <div style={S.kpiLbl}>{lbl}</div>
+              </div>
+            ))}
+          </div>
 
-      {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 60 }}>
-          <div style={{ ...S.spinner, width: 36, height: 36, borderWidth: 3 }} />
-        </div>
-      ) : paginatedAdmin.length === 0 ? (
-        <div style={{ textAlign: "center", color: "#ccc", padding: 48, fontSize: 15 }}>Sin órdenes registradas en esta rifa aún</div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {paginatedAdmin.map(p => (
-            <PedidoCard key={p.id} pedido={p} onCambiar={cambiarEstado} updating={updating === p.id} />
-          ))}
-        </div>
+          <div style={S.filterBar}>
+            <input placeholder="🔍 Buscar por nombre, RUT o email de esta campaña..." value={search} onChange={e => { setSearch(e.target.value); setAdminPage(0); }} style={{ ...S.input, flex: 1, minWidth: 0 }} />
+            <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setAdminPage(0); }} style={{ ...S.input, width: 140 }}>
+              <option value="todos">Todos ({pedidos.length})</option>
+              <option value="pendiente">Pendientes ({pedidos.filter(p => p.estado === "pendiente").length})</option>
+              <option value="confirmado">Confirmados ({pedidos.filter(p => p.estado === "confirmado").length})</option>
+              <option value="rechazado">Rechazados ({pedidos.filter(p => p.estado === "rechazado").length})</option>
+            </select>
+            <button style={S.refreshBtn} onClick={() => { fetchPedidos(); cargarTotalesGlobales(); }} title="Actualizar">🔄</button>
+          </div>
+
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: 60 }}><div style={{ ...S.spinner, width: 36, height: 36, borderWidth: 3 }} /></div>
+          ) : paginatedAdmin.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#ccc", padding: 48, fontSize: 15 }}>Sin órdenes registradas en esta rifa aún</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {paginatedAdmin.map(p => <PedidoCard key={p.id} pedido={p} onCambiar={cambiarEstado} updating={updating === p.id} />)}
+            </div>
+          )}
+        </>
       )}
 
-      {adminPages > 1 && (
-        <div style={{ ...S.pagination, marginTop: 20 }}>
-          <button style={S.pageBtn} disabled={adminPage === 0} onClick={() => setAdminPage(p => p - 1)}>← Anterior</button>
-          <span style={S.pageInfo}>Página {adminPage + 1} de {adminPages}</span>
-          <button style={S.pageBtn} disabled={adminPage >= adminPages - 1} onClick={() => setAdminPage(p => p + 1)}>Siguiente →</button>
+      {/* ─── PESTAÑA 2: MANTENEDOR CRUD DE RIFAS (NUEVO REQUERIMIENTO) ─── */}
+      {tab === "campanas" && (
+        <div className="fade">
+          {/* Formulario de Registro / Edición */}
+          <div style={{ background: "#fff", borderRadius: 16, padding: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: `1px solid ${gold}44`, marginBottom: 28 }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: navy, marginBottom: 16 }}>
+              {editandoId ? "📝 Modificar Campaña Existing" : "✨ Crear Nueva Campaña de Rifa"}
+            </h3>
+            <form onSubmit={handleGuardarRifa} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Título de la Rifa</label>
+                  <input type="text" placeholder="Ej: Gran Rifa Pro-Templo 2026" value={rifaForm.titulo} onChange={e => setRifaForm({ ...rifaForm, titulo: e.target.value })} style={S.input} required />
+                </div>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Motivo / Objetivo Corto</label>
+                  <input type="text" placeholder="Ej: Construcción Sala Cuna" value={rifaForm.motivo} onChange={e => setRifaForm({ ...rifaForm, motivo: e.target.value })} style={S.input} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Precio por Número ($)</label>
+                  <input type="number" value={rifaForm.precio_por_numero} onChange={e => setRifaForm({ ...rifaForm, precio_por_numero: e.target.value })} style={S.input} required />
+                </div>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Total Números Disponibles</label>
+                  <input type="number" value={rifaForm.total_numeros} onChange={e => setRifaForm({ ...rifaForm, total_numeros: e.target.value })} style={S.input} required />
+                </div>
+                <div style={S.fieldGroup}>
+                  <label style={S.label}>Fecha del Sorteo</label>
+                  <input type="text" placeholder="Ej: 24 de Diciembre 2026" value={rifaForm.fecha_sorteo} onChange={e => setRifaForm({ ...rifaForm, fecha_sorteo: e.target.value })} style={S.input} required />
+                </div>
+              </div>
+
+              <div style={S.fieldGroup}>
+                <label style={S.label}>Lista de Premios (Separados por comas ",")</label>
+                <input type="text" placeholder="Ej: Refrigerador Samsung, Smart TV 55, Licuadora Oster" value={rifaForm.premios} onChange={e => setRifaForm({ ...rifaForm, premios: e.target.value })} style={S.input} />
+                <span style={{ fontSize: 11, color: "#aaa", marginTop: 2 }}>Los premios aparecerán ordenados numéricamente (1°, 2°, 3° Premio) divididos por comas.</span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+                <input type="checkbox" id="activa" checked={rifaForm.activa} onChange={e => setRifaForm({ ...rifaForm, activa: e.target.checked })} style={{ width: 18, height: 18, cursor: "pointer" }} />
+                <label htmlFor="activa" style={{ fontSize: 13, fontWeight: "bold", color: navy, cursor: "pointer" }}>Visible para el público general en la cartelera</label>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                <button type="submit" style={{ ...S.btnPrimary, flex: 1, background: emerald }}>
+                  {editandoId ? "💾 Guardar Cambios" : "➕ Crear Campaña"}
+                </button>
+                {editandoId && (
+                  <button type="button" onClick={() => { setEditandoId(null); setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true }); }} style={{ ...S.btnPrimary, background: "#888" }}>
+                    Cancelar
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+
+          {/* Listado de control de campañas */}
+          <h3 style={{ fontSize: 12, fontWeight: 700, color: navy, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
+            📋 Catálogo Histórico de Rifas en Sistema
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {rifasLocales.map(r => (
+              <div key={r.id} style={{ background: "#fff", borderRadius: 12, padding: 16, border: "1px solid #e0d9cc", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: "bold", color: navy, fontSize: 16 }}>{r.titulo}</span>
+                    <span style={{ background: r.activa ? `${emerald}22` : "#eee", color: r.activa ? emerald : "#999", fontSize: 11, padding: "2px 8px", borderRadius: 20, fontWeight: "bold" }}>
+                      {r.activa ? "● Activa" : "Oculta"}
+                    </span>
+                  </div>
+                  <p style={{ color: "#777", fontSize: 13, marginTop: 4 }}>
+                    🎯 Objetivo: {r.motivo || "General"} · 🎫 Valor n°: {formatCLP(r.precio_por_numero)} · 📅 Sorteo: {r.fecha_sorteo}
+                  </p>
+                  <p style={{ color: gold, fontSize: 12, marginTop: 4, fontWeight: "500" }}>
+                    🎁 Premios: {r.premios && r.premios.length > 0 ? r.premios.join(" · ") : "Ninguno configurado"}
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => handleIniciarEditar(r)} style={{ background: `${gold}22`, color: navy, border: `1px solid ${gold}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: "bold" }}>
+                    ⚙️ Editar
+                  </button>
+                  <button onClick={() => handleEliminarRifa(r.id, r.titulo)} style={{ background: "#fde8e8", color: rose, border: `1px solid ${rose}44`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: "bold" }}>
+                    🗑️ Borrar
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </main>
