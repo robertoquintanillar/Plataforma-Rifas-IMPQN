@@ -175,6 +175,13 @@ const formatCelular = (value) => {
   }
 };
 
+// ─── LIMPIADOR DE CORREO ELECTRÓNICO EN TIEMPO REAL ───────────────────────────
+const cleanEmail = (value) => {
+  if (!value) return "";
+  // Remueve espacios en blanco y fuerza minúsculas (el estándar para correos)
+  return value.replace(/\s+/g, "").toLowerCase();
+};
+
 // ─── Supabase client ──────────────────────────────────────────────────────────
 // ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
 function db() {
@@ -525,9 +532,14 @@ const e = {};
       e.rut = "RUT inválido";
     }
     
-    if (!form.email || !form.email.includes("@")) e.email = "Email inválido";
+    // Aquí queda instalada la nueva validación estricta del mail
+    const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+    if (!form.email || !form.email.trim()) {
+      e.email = "Requerido";
+    } else if (!emailRegex.test(form.email)) {
+      e.email = "El correo electrónico no es válido. Ejemplo: nombre@dominio.com";
+    }
     
-    // Aquí queda instalada la nueva validación del celular
     if (!form.telefono || !form.telefono.trim() || form.telefono.trim() === "+56 9") {
       e.telefono = "Requerido";
     } else if (form.telefono.replace(/[^0-9]/g, "").length < 11) {
@@ -837,7 +849,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
     {errors.rut && <span style={S.errMsg}>{errors.rut}</span>}
   </div>
 
-  {/* 3. CAMPO CORREO ELECTRÓNICO */}
+{/* 3. CAMPO CORREO ELECTRÓNICO (FILTRO EN TIEMPO REAL) */}
   <div style={S.fieldGroup}>
     <label style={S.label}>Correo electrónico</label>
     <input 
@@ -845,7 +857,10 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
       placeholder="juan@ejemplo.cl" 
       value={form.email}
       onChange={e => {
-        setForm({ ...form, email: e.target.value });
+        const val = e.target.value;
+        const correoLimpio = cleanEmail(val);
+        
+        setForm({ ...form, email: correoLimpio });
         setErrors({ ...errors, email: null });
       }}
       style={{...S.input,...(errors.email ? {borderColor:rose} : {})}}
