@@ -465,19 +465,27 @@ const handleSubmit = async () => {
     const e = {};
     if (!form.nombre.trim()) e.nombre = "Requerido";
     
-    // 🔥 NUEVA VALIDACIÓN COMPLETA DEL RUT
+    // ─── VALIDACIÓN AVANZADA DEL RUT CON MENSAJE DIRIGIDO ──────────────────────
     if (!form.rut.trim()) {
       e.rut = "Requerido";
     } else if (!validateRUT(form.rut)) {
-      e.rut = "RUT inválido. Revisa los números y el dígito verificador.";
+      e.rut = "El RUT ingresado es inválido. Revisa los números y el dígito verificador.";
     }
     
     if (!form.email.includes("@")) e.email = "Email inválido";
     if (!form.telefono.trim()) e.telefono = "Requerido";
     if (!voucher) e.voucher = "Debes subir el comprobante";
-    if (Object.keys(e).length) { setErrors(e); return; }
     
-    setSubmitting(true); setSubmitErr(null);
+    if (Object.keys(e).length) { 
+      setErrors(e); 
+      // 🔥 Agregamos un error global para que si el texto chico no se ve, 
+      // salte una caja de alerta arriba del botón.
+      setSubmitErr("Por favor, corrige los errores en el formulario antes de continuar.");
+      return; 
+    }
+    
+    setSubmitting(true); 
+    setSubmitErr(null);
     const nums = [...selected].sort((a, b) => a - b);
     try {
       let pedido = await db().insertPedido({
@@ -757,7 +765,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
                     }}
                     style={{...S.input,...(errors[k]?{borderColor:rose}:{})}}
                   />
-                  {errors[k]&&<span style={S.errMsg}>{errors[k]}</span>}
+                  {errors[k] && <span style={S.errMsg}>{errors[k]}</span>}
                 </div>
               ))}
 
@@ -1208,7 +1216,13 @@ const S = {
   fieldGroup:{display:"flex",flexDirection:"column",gap:4},
   label:{fontSize:11,fontWeight:700,color:"#777",textTransform:"uppercase",letterSpacing:0.6},
   input:{border:"1.5px solid #e0d9cc",borderRadius:10,padding:"10px 14px",fontSize:15,fontFamily:"'DM Sans',sans-serif",color:navy,background:"#fafaf8",transition:"border-color .2s"},
-  errMsg:{color:rose,fontSize:12},
+  errMsg: {
+    color: "#c0392b", // O usa la constante: rose
+    fontSize: "12px",
+    marginTop: "4px",
+    display: "block",
+    fontWeight: "bold"
+  },
   alertErr:{background:"#fde8e8",color:rose,borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13},
   uploadZone:{display:"block",border:`2px dashed ${gold}`,borderRadius:12,padding:20,textAlign:"center",cursor:"pointer",background:"#fdf8f0",transition:"border-color .2s"},
   uploadInner:{display:"flex",flexDirection:"column",gap:6,alignItems:"center"},
