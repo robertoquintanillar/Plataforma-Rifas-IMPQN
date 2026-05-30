@@ -516,10 +516,9 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const total = selected.size * rifaActiva.precio_por_numero;
 
 const handleSubmit = async () => {
-    const e = {};
+const e = {};
     if (!form.nombre || !form.nombre.trim()) e.nombre = "Requerido";
     
-    // Validar el RUT usando la función Módulo 11
     if (!form.rut || !form.rut.trim()) {
       e.rut = "Requerido";
     } else if (!validateRUT(form.rut)) {
@@ -527,7 +526,14 @@ const handleSubmit = async () => {
     }
     
     if (!form.email || !form.email.includes("@")) e.email = "Email inválido";
-    if (!form.telefono || !form.telefono.trim()) e.telefono = "Requerido";
+    
+    // Aquí queda instalada la nueva validación del celular
+    if (!form.telefono || !form.telefono.trim() || form.telefono.trim() === "+56 9") {
+      e.telefono = "Requerido";
+    } else if (form.telefono.replace(/[^0-9]/g, "").length < 11) {
+      e.telefono = "Número incompleto. Asegúrate de ingresar los 8 dígitos de tu celular.";
+    }
+    
     if (!voucher) e.voucher = "Debes subir el comprobante";
     
     if (Object.keys(e).length) { 
