@@ -189,10 +189,26 @@ function db() {
   const key = CONFIG.supabaseKey;
   const h = { "Content-Type":"application/json", apikey:key, Authorization:`Bearer ${key}` };
   return {
-    // Trae todas las rifas creadas en el sistema
+    // ─── NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
     async getRifas() {
-      const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers:h });
+      const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers: h });
       return r.json();
+    },
+    async insertRifa(rifa) {
+      const r = await fetch(`${url}/rest/v1/rifas`, {
+        method: "POST", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify(rifa)
+      });
+      return r.json();
+    },
+    async updateRifa(id, rifa) {
+      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
+        method: "PATCH", headers: h, body: JSON.stringify(rifa)
+      });
+    },
+    async deleteRifa(id) {
+      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
+        method: "DELETE", headers: h
+      });
     },
     // Trae los números vendidos filtrados exclusivamente por una rifa
     async getNumerosTomados(rifaId) {
@@ -234,24 +250,7 @@ function db() {
       const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers:h });
       return r.json();
     },
-    // ─── NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
-    async insertRifa(rifa) {
-      const r = await fetch(`${url}/rest/v1/rifas`, {
-        method: "POST", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify(rifa)
-      });
-      return r.json();
-    },
-    async updateRifa(id, rifa) {
-      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
-        method: "PATCH", headers: h, body: JSON.stringify(rifa)
-      });
-    },
-    async deleteRifa(id) {
-      await fetch(`${url}/rest/v1/rifas?id=eq.${id}`, {
-        method: "DELETE", headers: h
-      });
-    },
-    // ─── FIN NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
+
     // Copia y pega esta función dentro del return de db()
     async updateVoucherUrl(id, voucher_url) {
       await fetch(`${url}/rest/v1/pedidos?id=eq.${id}`, {
@@ -1125,7 +1124,7 @@ function AdminView({ listaRifas }) {
   });
 
   const paginatedAdmin = filtrados.slice(adminPage * ADMIN_PER_PAGE, (adminPage + 1) * ADMIN_PER_PAGE);
-  const adminPages = Math.ceil(filtrados.length / ADMIN_PER_PAGE);
+  //const adminPages = Math.ceil(filtrados.length / ADMIN_PER_PAGE);
 
   const granTotalRecaudadoGlobal = todosLosPedidos
     .filter(p => p.estado !== "rechazado")
