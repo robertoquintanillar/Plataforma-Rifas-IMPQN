@@ -763,59 +763,97 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
           ))}
         </div>
 
-        <div style={S.fields}>
-          {[
-            {k:"nombre",lbl:"Nombre completo",t:"text",ph:"Juan Pérez González"},
-            {k:"rut",lbl:"RUT",t:"text",ph:"12.345.678-9"},
-            {k:"email",lbl:"Correo electrónico",t:"email",ph:"juan@ejemplo.cl"},
-            {k:"telefono",lbl:"Teléfono / WhatsApp",t:"tel",ph:"+56 9 8765 4321"},
-          ].map(({k,lbl,t,ph})=>(
-            <div key={k} style={S.fieldGroup}>
-                  <label style={S.label}>{lbl}</label>
-                  <input 
-                    type={t} 
-                    placeholder={ph} 
-                    value={form[k]}
-                    onChange={e => {
-                      let inputValue = e.target.value;
-                      
-                      // 🔥 SI EL CAMPO ES EL RUT, LE APLICAMOS LA MÁSCARA AL INSTANTE
-                      if (k === "rut") {
-                        inputValue = formatRUT(inputValue);
-                      }
-                      
-                      setForm({ ...form, [k]: inputValue });
-                      setErrors({ ...errors, [k]: null });
-                    }}
-                    style={{...S.input,...(errors[k]?{borderColor:rose}:{})}}
-                  />
-                  {errors[k] && <span style={S.errMsg}>{errors[k]}</span>}
-                </div>
-              ))}
+<div style={S.fields}>
+  {/* 1. CAMPO NOMBRE */}
+  <div style={S.fieldGroup}>
+    <label style={S.label}>Nombre completo</label>
+    <input 
+      type="text" 
+      placeholder="Juan Pérez González" 
+      value={form.nombre}
+      onChange={e => {
+        setForm({ ...form, nombre: e.target.value });
+        setErrors({ ...errors, nombre: null });
+      }}
+      style={{...S.input,...(errors.nombre ? {borderColor:rose} : {})}}
+    />
+    {errors.nombre && <span style={S.errMsg}>{errors.nombre}</span>}
+  </div>
 
-          <div style={S.fieldGroup}>
-            <label style={S.label}>Comprobante de transferencia</label>
-            <label style={{...S.uploadZone,...(errors.voucher?{borderColor:rose}:{})}}>
-              <input type="file" accept="image/*,application/pdf" onChange={handleFile} style={{display:"none"}}/>
-              {voucherPreview ? (
-                <div style={{textAlign:"center"}}>
-                  {voucher?.type==="application/pdf"
-                    ? <div style={S.pdfBadge}>📄 {voucher.name}</div>
-                    : <img src={voucherPreview} alt="comprobante" style={S.voucherImg}/>
-                  }
-                  <div style={{color:gold,fontSize:12,marginTop:8}}>Toca para cambiar</div>
-                </div>
-              ):(
-                <div style={S.uploadInner}>
-                  <span style={{fontSize:36}}>📎</span>
-                  <span style={S.uploadTxt}>Subir comprobante</span>
-                  <span style={S.uploadHint}>JPG, PNG o PDF · Máx 10MB</span>
-                </div>
-              )}
-            </label>
-            {errors.voucher&&<span style={S.errMsg}>{errors.voucher}</span>}
-          </div>
+  {/* 2. CAMPO RUT (MÁSCARA EN TIEMPO REAL FORZADA) */}
+  <div style={S.fieldGroup}>
+    <label style={S.label}>RUT</label>
+    <input 
+      type="text" 
+      placeholder="12.345.678-9" 
+      value={form.rut}
+      onChange={e => {
+        // Ejecuta la máscara matemática al instante
+        const rutFormateado = formatRUT(e.target.value);
+        setForm({ ...form, rut: rutFormateado });
+        setErrors({ ...errors, rut: null });
+      }}
+      style={{...S.input,...(errors.rut ? {borderColor:rose} : {})}}
+    />
+    {errors.rut && <span style={S.errMsg}>{errors.rut}</span>}
+  </div>
+
+  {/* 3. CAMPO CORREO ELECTRÓNICO */}
+  <div style={S.fieldGroup}>
+    <label style={S.label}>Correo electrónico</label>
+    <input 
+      type="email" 
+      placeholder="juan@ejemplo.cl" 
+      value={form.email}
+      onChange={e => {
+        setForm({ ...form, email: e.target.value });
+        setErrors({ ...errors, email: null });
+      }}
+      style={{...S.input,...(errors.email ? {borderColor:rose} : {})}}
+    />
+    {errors.email && <span style={S.errMsg}>{errors.email}</span>}
+  </div>
+
+  {/* 4. CAMPO TELÉFONO */}
+  <div style={S.fieldGroup}>
+    <label style={S.label}>Teléfono / WhatsApp</label>
+    <input 
+      type="tel" 
+      placeholder="+56 9 8765 4321" 
+      value={form.telefono}
+      onChange={e => {
+        setForm({ ...form, telefono: e.target.value });
+        setErrors({ ...errors, telefono: null });
+      }}
+      style={{...S.input,...(errors.telefono ? {borderColor:rose} : {})}}
+    />
+    {errors.telefono && <span style={S.errMsg}>{errors.telefono}</span>}
+  </div>
+
+  {/* 5. ZONA DE COMPROBANTE DE TRANSFERENCIA (Mantenemos tu lógica intacta) */}
+  <div style={S.fieldGroup}>
+    <label style={S.label}>Comprobante de transferencia</label>
+    <label style={{...S.uploadZone,...(errors.voucher?{borderColor:rose}:{})}}>
+      <input type="file" accept="image/*,application/pdf" onChange={handleFile} style={{display:"none"}}/>
+      {voucherPreview ? (
+        <div style={{textAlign:"center"}}>
+          {voucher?.type==="application/pdf"
+            ? <div style={S.pdfBadge}>📄 {voucher.name}</div>
+            : <img src={voucherPreview} alt="comprobante" style={S.voucherImg}/>
+          }
+          <div style={{color:gold,fontSize:12,marginTop:8}}>Toca para cambiar</div>
         </div>
+      ):(
+        <div style={S.uploadInner}>
+          <span style={{fontSize:36}}>📎</span>
+          <span style={S.uploadTxt}>Subir comprobante</span>
+          <span style={S.uploadHint}>JPG, PNG o PDF · Máx 10MB</span>
+        </div>
+      )}
+    </label>
+    {errors.voucher&&<span style={S.errMsg}>{errors.voucher}</span>}
+  </div>
+</div>
 
         {submitErr&&<div style={S.alertErr}>{submitErr}</div>}
 
