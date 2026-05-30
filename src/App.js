@@ -243,12 +243,14 @@ function db() {
       });
     },
 
-    // 3. CONTROL DE NÚMEROS Y ALMACENAMIENTO DE ARCHIVOS
-    async getNumerosVendidos(rifaId) {
+// 3. CONTROL DE NÚMEROS Y ALMACENAMIENTO DE ARCHIVOS
+    async getNumerosTomados(rifaId) {
       const r = await fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaId}&estado=neq.rechazado`, { headers: h });
       const data = await r.json();
-      return data.reduce((acc, p) => acc.concat(p.numeros || []), []);
+      // Retornamos un Set directamente para que el .has(n) de la grilla funcione a la perfección
+      return new Set(data.reduce((acc, p) => acc.concat(p.numeros || []), []));
     },
+    
     async marcarNumeros(nums, rifaId) {
       // Mantiene consistencia de asignación de números en el cliente
       return true;
