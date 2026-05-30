@@ -69,6 +69,81 @@ const pad = (n, len = 4) => String(n).padStart(len, "0");
   { id:"d3", nombre:"Ana Muñoz", rut:"15.432.109-8", email:"ana@ejemplo.cl", telefono:"+56 9 5555 1234", numeros:[89,100,123,200,250], total:10000, estado:"rechazado", created_at: new Date(Date.now()-7200000).toISOString(), voucher_url:null },
 ]; */
 
+// ─── FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
+const formatRUT = (value) => {
+  // 1. Limpiar el string de cualquier caracter que no sea número o la letra K
+  let rut = value.replace(/[^0-9kK]/g, "").toUpperCase();
+  
+  // 2. Limitar el largo máximo (un RUT no tiene más de 9 caracteres limpios: 8 dígitos + DV)
+  if (rut.length > 9) {
+    rut = rut.slice(0, 9);
+  }
+
+  // Si está vacío, retornar vacío de inmediato
+  if (!rut) return "";
+
+  // 3. Separar el Cuerpo del Dígito Verificador (último caracter)
+  const dv = rut.slice(-1);
+  const cuerpo = rut.slice(0, -1);
+
+  // 4. Ir aplicando la máscara dinámicamente según el largo
+  if (cuerpo.length === 0) {
+    return dv; // Si solo han escrito un dígito
+  }
+// ─── FIN FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
+
+// ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
+const validateRUT = (rutCompleto) => {
+  // Si no hay nada, no es válido
+  if (!rutCompleto) return false;
+
+  // Limpiar el formato (quitar puntos y guion)
+  const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
+
+  // Un RUT chileno necesita al menos 8 caracteres (7 dígitos + DV)
+  if (rutLimpio.length < 8) return false;
+
+  // Separar el cuerpo del dígito verificador
+  const dvInput = rutLimpio.slice(-1).toUpperCase();
+  const cuerpo = rutLimpio.slice(0, -1);
+
+  // Calcular el Dígito Verificador teórico usando el algoritmo Módulo 11
+  let suma = 0;
+  let multiplicador = 2;
+
+  // Recorrer el cuerpo de atrás hacia adelante
+  for (let i = cuerpo.length - 1; i >= 0; i--) {
+    suma += parseInt(cuerpo[i], 10) * multiplicador;
+    multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
+  }
+
+  const dvEsperado = 11 - (suma % 11);
+  
+  // Transformar los casos especiales (11 -> 0, 10 -> K)
+  let dvCalculado = "";
+  if (dvEsperado === 11) dvCalculado = "0";
+  else if (dvEsperado === 10) dvCalculado = "K";
+  else dvCalculado = String(dvEsperado);
+
+  // Retornar si el dígito ingresado coincide con el matemático
+  return dvInput === dvCalculado;
+};
+
+// ─── FIN VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
+
+  let cuerpoFormateado = "";
+  if (cuerpo.length <= 3) {
+    cuerpoFormateado = cuerpo;
+  } else if (cuerpo.length <= 6) {
+    cuerpoFormateado = `${cuerpo.slice(0, -3)}.${cuerpo.slice(-3)}`;
+  } else {
+    cuerpoFormateado = `${cuerpo.slice(0, -6)}.${cuerpo.slice(-6, -3)}.${cuerpo.slice(-3)}`;
+  }
+
+  // Retornar el RUT con sus puntos y el guion normativo
+  return `${cuerpoFormateado}-${dv}`;
+};
+
 // ─── Supabase client ──────────────────────────────────────────────────────────
 // ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
 function db() {
@@ -412,7 +487,14 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
 const handleSubmit = async () => {
     const e = {};
     if (!form.nombre.trim()) e.nombre = "Requerido";
-    if (!form.rut.trim()) e.rut = "Requerido";
+    
+    // 🔥 NUEVA VALIDACIÓN COMPLETA DEL RUT
+    if (!form.rut.trim()) {
+      e.rut = "Requerido";
+    } else if (!validateRUT(form.rut)) {
+      e.rut = "RUT inválido. Revisa los números y el dígito verificador.";
+    }
+    
     if (!form.email.includes("@")) e.email = "Email inválido";
     if (!form.telefono.trim()) e.telefono = "Requerido";
     if (!voucher) e.voucher = "Debes subir el comprobante";
@@ -680,14 +762,27 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
             {k:"telefono",lbl:"Teléfono / WhatsApp",t:"tel",ph:"+56 9 8765 4321"},
           ].map(({k,lbl,t,ph})=>(
             <div key={k} style={S.fieldGroup}>
-              <label style={S.label}>{lbl}</label>
-              <input type={t} placeholder={ph} value={form[k]}
-                onChange={e=>{setForm({...form,[k]:e.target.value});setErrors({...errors,[k]:null})}}
-                style={{...S.input,...(errors[k]?{borderColor:rose}:{})}}
-              />
-              {errors[k]&&<span style={S.errMsg}>{errors[k]}</span>}
-            </div>
-          ))}
+                  <label style={S.label}>{lbl}</label>
+                  <input 
+                    type={t} 
+                    placeholder={ph} 
+                    value={form[k]}
+                    onChange={e => {
+                      let inputValue = e.target.value;
+                      
+                      // 🔥 SI EL CAMPO ES EL RUT, LE APLICAMOS LA MÁSCARA AL INSTANTE
+                      if (k === "rut") {
+                        inputValue = formatRUT(inputValue);
+                      }
+                      
+                      setForm({ ...form, [k]: inputValue });
+                      setErrors({ ...errors, [k]: null });
+                    }}
+                    style={{...S.input,...(errors[k]?{borderColor:rose}:{})}}
+                  />
+                  {errors[k]&&<span style={S.errMsg}>{errors[k]}</span>}
+                </div>
+              ))}
 
           <div style={S.fieldGroup}>
             <label style={S.label}>Comprobante de transferencia</label>
