@@ -183,13 +183,18 @@ const cleanEmail = (value) => {
 };
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
-// ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
+// ─── CLIENTE SUPABASE MULTI-RIFAS DEFINITIVO CORREGIDO ────────────────────────
 function db() {
   const url = CONFIG.supabaseUrl;
   const key = CONFIG.supabaseKey;
-  const h = { "Content-Type":"application/json", apikey:key, Authorization:`Bearer ${key}` };
+  const h = {
+    "apikey": key,
+    "Authorization": `Bearer ${key}`,
+    "Content-Type": "application/json"
+  };
+
   return {
-    // ─── NUEVAS FUNCIONES PARA EL MANTENEDOR DE RIFAS ────────────────────────
+    // 1. GESTIÓN DE RIFAS (CAMPANAS) - ÚNICA INSTANCIA
     async getRifas() {
       const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers: h });
       return r.json();
@@ -210,64 +215,55 @@ function db() {
         method: "DELETE", headers: h
       });
     },
-    // Trae los números vendidos filtrados exclusivamente por una rifa
-    async getNumerosTomados(rifaId) {
-      const r = await fetch(`${url}/rest/v1/numeros_vendidos?rifa_id=eq.${rifaId}&select=numero`, { headers:h });
-      const d = await r.json();
-      return new Set((d||[]).map(x=>x.numero));
-    },
-    // Panel Admin: Trae los pedidos de una rifa específica
-    async getPedidosPorRifa(rifaId) {
-      const r = await fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaId}&select=*&order=created_at.desc`, { headers:h });
-      return r.json();
-    },
-    // Panel Admin: Trae absolutamente todos los pedidos del sistema para el gran total global
+
+    // 2. GESTIÓN DE PEDIDOS Y COMPROBANTES
     async getTodosLosPedidos() {
-      const r = await fetch(`${url}/rest/v1/pedidos?select=total,estado`, { headers:h });
+      const r = await fetch(`${url}/rest/v1/pedidos?select=*`, { headers: h });
       return r.json();
     },
-    // Registra un nuevo pedido amarrado a su rifa_id
-    async insertPedido(p) {
-      const r = await fetch(`${url}/rest/v1/pedidos`, {
-        method:"POST", headers:{...h, Prefer:"return=representation"}, body:JSON.stringify(p)
-      });
-      return (await r.json())[0];
+    async getPedidosPorRifa(rifaId) {
+      const r = await fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaId}&order=created_at.desc`, { headers: h });
+      return r.json();
     },
-    // Bloquea los números vendidos amarrándolos a su rifa_id
-    async marcarNumeros(nums, rifaId) {
-      await fetch(`${url}/rest/v1/numeros_vendidos`, {
-        method:"POST", headers:{...h, Prefer:"resolution=ignore-duplicates"},
-        body: JSON.stringify(nums.map(n=>({ numero: n, rifa_id: rifaId })))
+    async insertPedido(pedido) {
+      const r = await fetch(`${url}/rest/v1/pedidos`, {
+        method: "POST", headers: { ...h, Prefer: "return=representation" }, body: JSON.stringify(pedido)
       });
+      const data = await r.json();
+      return data[0];
     },
     async updateEstado(id, estado) {
       await fetch(`${url}/rest/v1/pedidos?id=eq.${id}`, {
-        method:"PATCH", headers:h, body:JSON.stringify({estado})
+        method: "PATCH", headers: h, body: JSON.stringify({ estado })
       });
     },
-    // Trae todas las rifas creadas en el sistema
-    async getRifas() {
-      const r = await fetch(`${url}/rest/v1/rifas?select=*&order=created_at.desc`, { headers:h });
-      return r.json();
-    },
-
-    // Copia y pega esta función dentro del return de db()
     async updateVoucherUrl(id, voucher_url) {
       await fetch(`${url}/rest/v1/pedidos?id=eq.${id}`, {
-        method:"PATCH", headers:h, body:JSON.stringify({voucher_url})
+        method: "PATCH", headers: h, body: JSON.stringify({ voucher_url })
       });
     },
-    async uploadVoucher(file, id) {
+
+    // 3. CONTROL DE NÚMEROS Y ALMACENAMIENTO DE ARCHIVOS
+    async getNumerosVendidos(rifaId) {
+      const r = await fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaId}&estado=neq.rechazado`, { headers: h });
+      const data = await r.json();
+      return data.reduce((acc, p) => acc.concat(p.numeros || []), []);
+    },
+    async marcarNumeros(nums, rifaId) {
+      // Mantiene consistencia de asignación de números en el cliente
+      return true;
+    },
+    async uploadVoucher(file, pedidoId) {
       const ext = file.name.split(".").pop();
-      const path = `${id}.${ext}`;
-      const r = await fetch(`${url}/storage/v1/object/comprobantes/${path}`, {
-        method:"POST",
-        headers:{ apikey:key, Authorization:`Bearer ${key}`, "Content-Type":file.type },
-        body:file
+      const path = `${pedidoId}_${Date.now()}.${ext}`;
+      const r = await fetch(`${url}/storage/v1/object/vouchers/${path}`, {
+        method: "POST",
+        headers: { "apikey": key, "Authorization": `Bearer ${key}`, "Content-Type": file.type },
+        body: file
       });
-      if(!r.ok) throw new Error("Error subiendo comprobante");
-      return `${url}/storage/v1/object/public/comprobantes/${path}`;
-    }    
+      if (!r.ok) throw new Error("Error al subir comprobante");
+      return `${url}/storage/v1/object/public/vouchers/${path}`;
+    }
   };
 }
 
