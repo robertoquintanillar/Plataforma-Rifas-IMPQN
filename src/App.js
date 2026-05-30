@@ -71,26 +71,30 @@ const pad = (n, len = 4) => String(n).padStart(len, "0");
 
 // ─── FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
 const formatRUT = (value) => {
-  // 1. Limpiar el string de cualquier caracter que no sea número o la letra K
+  if (!value) return "";
+  
+  // Limpiar dejando solo números y K
   let rut = value.replace(/[^0-9kK]/g, "").toUpperCase();
   
-  // 2. Limitar el largo máximo (un RUT no tiene más de 9 caracteres limpios: 8 dígitos + DV)
-  if (rut.length > 9) {
-    rut = rut.slice(0, 9);
-  }
+  if (rut.length > 9) rut = rut.slice(0, 9);
+  if (rut.length === 0) return "";
 
-  // Si está vacío, retornar vacío de inmediato
-  if (!rut) return "";
-
-  // 3. Separar el Cuerpo del Dígito Verificador (último caracter)
   const dv = rut.slice(-1);
   const cuerpo = rut.slice(0, -1);
 
-  // 4. Ir aplicando la máscara dinámicamente según el largo
-  if (cuerpo.length === 0) {
-    return dv; // Si solo han escrito un dígito
+  if (cuerpo.length === 0) return dv;
+
+  let cuerpoFormateado = "";
+  if (cuerpo.length <= 3) {
+    cuerpoFormateado = cuerpo;
+  } else if (cuerpo.length <= 6) {
+    cuerpoFormateado = `${cuerpo.slice(0, -3)}.${cuerpo.slice(-3)}`;
+  } else {
+    cuerpoFormateado = `${cuerpo.slice(0, -6)}.${cuerpo.slice(-6, -3)}.${cuerpo.slice(-3)}`;
   }
-}
+
+  return `${cuerpoFormateado}-${dv}`;
+};
 // ─── FIN FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
 
 // ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) — VERSIÓN CORREGIDA ───────────
@@ -780,21 +784,20 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
     {errors.nombre && <span style={S.errMsg}>{errors.nombre}</span>}
   </div>
 
-{/* 2. CAMPO RUT (MÁSCARA EN TIEMPO REAL FORZADA CON REFRESCO DE MEMORIA) */}
+{/* 2. CAMPO RUT (MÁSCARA ESTABLE EN TIEMPO REAL) */}
   <div style={S.fieldGroup}>
     <label style={S.label}>RUT</label>
     <input 
-      key="rut-field-corregido"
       type="text" 
       placeholder="12.345.678-9" 
-      value={form.rut || ""} 
+      value={form.rut} 
       onChange={e => {
-        const rawValue = e.target.value;
-        const rutFormateado = formatRUT(rawValue);
+        const val = e.target.value;
+        const formateado = formatRUT(val);
         
-        // Forzamos la actualización inmediata del estado
-        setForm(prevForm => ({ ...prevForm, rut: rutFormateado }));
-        setErrors(prevErrors => ({ ...prevErrors, rut: null }));
+        // Actualización estándar y directa
+        setForm({ ...form, rut: formateado });
+        setErrors({ ...errors, rut: null });
       }}
       style={{...S.input,...(errors.rut ? {borderColor:rose} : {})}}
     />
