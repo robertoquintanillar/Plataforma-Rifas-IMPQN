@@ -259,13 +259,13 @@ function db() {
       const ext = file.name.split(".").pop();
       const path = `${pedidoId}_${Date.now()}.${ext}`;
       
-      // Cambiamos el header para asegurar que Supabase acepte el binario
-      const r = await fetch(`${url}/storage/v1/object/vouchers/${path}`, {
+      // 1. Cambia 'vouchers' por 'comprobantes' aquí
+      const r = await fetch(`${url}/storage/v1/object/comprobantes/${path}`, {
         method: "POST",
         headers: { 
           "apikey": key, 
           "Authorization": `Bearer ${key}`, 
-          "Content-Type": file.type || "image/jpeg" // Fallback si el tipo es desconocido
+          "Content-Type": file.type || "image/jpeg"
         },
         body: file
       });
@@ -275,7 +275,9 @@ function db() {
         console.error("Detalle del error Supabase:", errorData);
         throw new Error("Error al subir comprobante: " + (errorData.message || "400 Bad Request"));
       }
-      return `${url}/storage/v1/object/public/vouchers/${path}`;
+      
+      // 2. Cambia 'vouchers' por 'comprobantes' también aquí
+      return `${url}/storage/v1/object/public/comprobantes/${path}`;
     }
   };
 }
