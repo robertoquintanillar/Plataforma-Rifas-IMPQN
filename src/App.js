@@ -475,32 +475,39 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const total = selected.size * rifaActiva.precio_por_numero;
 
 const handleSubmit = async () => {
+    // 🚨 Alerta de diagnóstico 1: Saber si el botón al menos responde al clic
+    alert("¡Hiciste clic en el botón! Iniciando validaciones...");
+
     const e = {};
-    if (!form.nombre.trim()) e.nombre = "Requerido";
+    if (!form.nombre || !form.nombre.trim()) e.nombre = "Requerido";
     
-    // ─── VALIDACIÓN AVANZADA DEL RUT CON MENSAJE DIRIGIDO ──────────────────────
-    if (!form.rut.trim()) {
+    // Validar el RUT usando la función Módulo 11
+    if (!form.rut || !form.rut.trim()) {
       e.rut = "Requerido";
     } else if (!validateRUT(form.rut)) {
-      e.rut = "El RUT ingresado es inválido. Revisa los números y el dígito verificador.";
+      e.rut = "RUT inválido";
     }
     
-    if (!form.email.includes("@")) e.email = "Email inválido";
-    if (!form.telefono.trim()) e.telefono = "Requerido";
+    if (!form.email || !form.email.includes("@")) e.email = "Email inválido";
+    if (!form.telefono || !form.telefono.trim()) e.telefono = "Requerido";
     if (!voucher) e.voucher = "Debes subir el comprobante";
     
+    // 🚨 Alerta de diagnóstico 2: Ver qué errores encontró el sistema
+    alert("Errores detectados: " + JSON.stringify(e));
+
     if (Object.keys(e).length) { 
       setErrors(e); 
-      // 🔥 Agregamos un error global para que si el texto chico no se ve, 
-      // salte una caja de alerta arriba del botón.
-      setSubmitErr("Por favor, corrige los errores en el formulario antes de continuar.");
+      setSubmitErr("Por favor, corrige los errores en el formulario.");
       return; 
     }
     
-    setSubmitting(true); 
-    setSubmitErr(null);
-    const nums = [...selected].sort((a, b) => a - b);
     try {
+      alert("¡Validación exitosa! Intentando conectar con Supabase...");
+      setSubmitting(true); 
+      setSubmitErr(null);
+      
+      const nums = [...selected].sort((a, b) => a - b);
+      
       let pedido = await db().insertPedido({
         rifa_id: rifaActiva.id,
         nombre: form.nombre,
@@ -513,21 +520,25 @@ const handleSubmit = async () => {
         voucher_url: null
       });
       
+      alert("Pedido insertado en Supabase. Subiendo comprobante...");
       const vUrl = await db().uploadVoucher(voucher, pedido.id);
       pedido.voucher_url = vUrl;
       
-      // ─── NUEVA LÍNEA AGREGADA: Guarda el enlace real en la fila del pedido ───
       await db().updateVoucherUrl(pedido.id, vUrl);
-      // ───────────────────────────────────────────────────────────────────────
-      
       await db().marcarNumeros(nums, rifaActiva.id);
+      
+      alert("Enviando notificaciones...");
       await sendEmail({ ...form, numeros: nums, total, rifaActiva });
       notifyWhatsApp({ nombre: form.nombre, email: form.email, numeros: nums, total });
+      
       setStep("success");
     } catch (err) {
+      alert("❌ Error crítico en el proceso: " + err.message);
       setSubmitErr("Ocurrió un error. Intenta nuevamente o contacta a la iglesia.");
       console.error(err);
-    } finally { setSubmitting(false); }
+    } finally { 
+      setSubmitting(false); 
+    }
   };
 
   if (step === "success") return (
