@@ -250,7 +250,7 @@ function db() {
       // Retornamos un Set directamente para que el .has(n) de la grilla funcione a la perfección
       return new Set(data.reduce((acc, p) => acc.concat(p.numeros || []), []));
     },
-    
+
     async marcarNumeros(nums, rifaId) {
       // Mantiene consistencia de asignación de números en el cliente
       return true;
@@ -258,12 +258,23 @@ function db() {
     async uploadVoucher(file, pedidoId) {
       const ext = file.name.split(".").pop();
       const path = `${pedidoId}_${Date.now()}.${ext}`;
+      
+      // Cambiamos el header para asegurar que Supabase acepte el binario
       const r = await fetch(`${url}/storage/v1/object/vouchers/${path}`, {
         method: "POST",
-        headers: { "apikey": key, "Authorization": `Bearer ${key}`, "Content-Type": file.type },
+        headers: { 
+          "apikey": key, 
+          "Authorization": `Bearer ${key}`, 
+          "Content-Type": file.type || "image/jpeg" // Fallback si el tipo es desconocido
+        },
         body: file
       });
-      if (!r.ok) throw new Error("Error al subir comprobante");
+
+      if (!r.ok) {
+        const errorData = await r.json();
+        console.error("Detalle del error Supabase:", errorData);
+        throw new Error("Error al subir comprobante: " + (errorData.message || "400 Bad Request"));
+      }
       return `${url}/storage/v1/object/public/vouchers/${path}`;
     }
   };
