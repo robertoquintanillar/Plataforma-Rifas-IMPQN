@@ -639,11 +639,16 @@ function SelectView({ tomados, selected, toggle, total, rifaActiva, onContinue, 
   const [page, setPage] = useState(0);
   const PER_PAGE = 200;
 
-  const disponibles = rifaActiva.total_numeros - tomados.size;
-  const porcentaje = Math.round((tomados.size / rifaActiva.total_numeros) * 100);
+  // 🔥 VALORES DE RESPALDO DE SEGURIDAD (Si no vienen en rifaActiva, asume el estándar de 2000)
+  const totalNumerosSeguros = rifaActiva?.total_numeros ? parseInt(rifaActiva.total_numeros, 10) : 2000;
+  const tomadosSizeSeguro = tomados?.size || 0;
+
+  const disponibles = totalNumerosSeguros - tomadosSizeSeguro;
+  const porcentaje = totalNumerosSeguros > 0 ? Math.round((tomadosSizeSeguro / totalNumerosSeguros) * 100) : 0;
 
   const numeros = useMemo(() => {
-    let arr = Array.from({ length: rifaActiva.total_numeros }, (_, i) => i + 1);
+    // Usamos el total de números seguro para evitar que Array.from colapse
+    let arr = Array.from({ length: totalNumerosSeguros }, (_, i) => i + 1);
     if (query.trim()) {
       const q = query.trim();
       arr = arr.filter(n => pad(n).includes(q) || String(n).includes(q));
@@ -651,7 +656,7 @@ function SelectView({ tomados, selected, toggle, total, rifaActiva, onContinue, 
     if (filtro === "disponibles") arr = arr.filter(n => !tomados.has(n));
     if (filtro === "vendidos") arr = arr.filter(n => tomados.has(n));
     return arr;
-  }, [query, filtro, tomados, rifaActiva.total_numeros]);
+  }, [query, filtro, tomados, totalNumerosSeguros]);
 
   useEffect(() => setPage(0), [query, filtro]);
 
