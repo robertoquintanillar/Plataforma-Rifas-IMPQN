@@ -93,31 +93,44 @@ const formatRUT = (value) => {
 }
 // ─── FIN FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
 
-// ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
+// ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) — VERSIÓN CORREGIDA ───────────
 const validateRUT = (rutCompleto) => {
   if (!rutCompleto) return false;
-  const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
-  if (rutLimpio.length < 8) return false;
 
+  // 1. Limpiar absolutamente todo para dejar SOLO números y la K (elimina puntos y guion)
+  const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
+  
+  // Un RUT válido tiene entre 8 y 9 caracteres limpios (ej: 12345678K o 98765432)
+  if (rutLimpio.length < 8 || rutLimpio.length > 9) return false;
+
+  // 2. Extraer el dígito verificador (el último carácter)
   const dvInput = rutLimpio.slice(-1).toUpperCase();
+  
+  // 3. Extraer el cuerpo (todo lo anterior al dígito verificador)
   const cuerpo = rutLimpio.slice(0, -1);
 
+  // 4. Algoritmo Módulo 11
   let suma = 0;
   let multiplicador = 2;
 
+  // Recorrer el cuerpo de atrás hacia adelante multiplicando por 2, 3, 4, 5, 6, 7 y volver a empezar
   for (let i = cuerpo.length - 1; i >= 0; i--) {
     suma += parseInt(cuerpo[i], 10) * multiplicador;
     multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
   }
 
-  const dvEsperado = 11 - (suma % 11);
+  // 5. Calcular el residuo de la división por 11
+  const residuo = suma % 11;
+  const resultado = 11 - residuo;
   
-  let dvCalculado = "";
-  if (dvEsperado === 11) dvCalculado = "0";
-  else if (dvEsperado === 10) dvCalculado = "K";
-  else dvCalculado = String(dvEsperado);
+  // 6. Determinar cuál debería ser el dígito verificador teórico
+  let dvEsperado = "";
+  if (resultado === 11) dvEsperado = "0";
+  else if (resultado === 10) dvEsperado = "K";
+  else dvEsperado = String(resultado);
 
-  return dvInput === dvCalculado;
+  // 7. Comparar lo que calculamos contra lo que ingresó el usuario
+  return dvInput === dvEsperado;
 };
 // ─── FIN VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
 
