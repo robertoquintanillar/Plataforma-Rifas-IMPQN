@@ -90,28 +90,21 @@ const formatRUT = (value) => {
   if (cuerpo.length === 0) {
     return dv; // Si solo han escrito un dígito
   }
+}
 // ─── FIN FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
 
 // ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
 const validateRUT = (rutCompleto) => {
-  // Si no hay nada, no es válido
   if (!rutCompleto) return false;
-
-  // Limpiar el formato (quitar puntos y guion)
   const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
-
-  // Un RUT chileno necesita al menos 8 caracteres (7 dígitos + DV)
   if (rutLimpio.length < 8) return false;
 
-  // Separar el cuerpo del dígito verificador
   const dvInput = rutLimpio.slice(-1).toUpperCase();
   const cuerpo = rutLimpio.slice(0, -1);
 
-  // Calcular el Dígito Verificador teórico usando el algoritmo Módulo 11
   let suma = 0;
   let multiplicador = 2;
 
-  // Recorrer el cuerpo de atrás hacia adelante
   for (let i = cuerpo.length - 1; i >= 0; i--) {
     suma += parseInt(cuerpo[i], 10) * multiplicador;
     multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
@@ -119,30 +112,14 @@ const validateRUT = (rutCompleto) => {
 
   const dvEsperado = 11 - (suma % 11);
   
-  // Transformar los casos especiales (11 -> 0, 10 -> K)
   let dvCalculado = "";
   if (dvEsperado === 11) dvCalculado = "0";
   else if (dvEsperado === 10) dvCalculado = "K";
   else dvCalculado = String(dvEsperado);
 
-  // Retornar si el dígito ingresado coincide con el matemático
   return dvInput === dvCalculado;
 };
-
 // ─── FIN VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ────────────────────────────────
-
-  let cuerpoFormateado = "";
-  if (cuerpo.length <= 3) {
-    cuerpoFormateado = cuerpo;
-  } else if (cuerpo.length <= 6) {
-    cuerpoFormateado = `${cuerpo.slice(0, -3)}.${cuerpo.slice(-3)}`;
-  } else {
-    cuerpoFormateado = `${cuerpo.slice(0, -6)}.${cuerpo.slice(-6, -3)}.${cuerpo.slice(-3)}`;
-  }
-
-  // Retornar el RUT con sus puntos y el guion normativo
-  return `${cuerpoFormateado}-${dv}`;
-};
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 // ─── CLIENTE SUPABASE MULTI-RIFAS DEFINTIVO ───────────────────────────────────
