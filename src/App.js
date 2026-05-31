@@ -62,7 +62,7 @@ const pad = (n) => {
 };
 
 // ─── FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
-const formatRUT = (value) => {
+/* const formatRUT = (value) => {
   if (!value) return "";
   let rut = value.replace(/[^0-9kK]/g, "").toUpperCase();
   if (rut.length > 9) rut = rut.slice(0, 9);
@@ -82,7 +82,7 @@ const formatRUT = (value) => {
   }
   return `${cuerpoFormateado}-${dv}`;
 };
-
+ */
 // ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ───────────────────────────
 /* const validateRUT = (rutCompleto) => {
   if (!rutCompleto) return false;
@@ -527,7 +527,7 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const handleResetFlujo = () => {
     setStep("select");
     setSelected(new Set());
-    setForm({ nombre: "", rut: "", email: "", telefono: "+56 9 " });
+    setForm({ nombre: "", email: "", telefono: "+56 9 " });
     setVoucher(null);
     setVoucherPreview(null);
     refrescarNumerosTomados();
@@ -1201,7 +1201,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
 
           <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
             <input 
-              placeholder="🔍 Buscar por nombre, RUT o email de comprador..." 
+              placeholder="🔍 Buscar por nombre, email de comprador..." 
               value={search} 
               onChange={e => { setSearch(e.target.value); setAdminPage(0); }} 
               style={{ ...S.input, flex: 1, minWidth: "260px" }} 
