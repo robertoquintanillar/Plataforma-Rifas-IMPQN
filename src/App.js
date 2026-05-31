@@ -15,16 +15,17 @@ const CONFIG = {
   maxPorPersona: 50,
   nombreIglesia: "Iglesia Metodista Pentecostal de Quinta Normal",
 
-  nombreCuenta: "Marcela Valdés",
-  rutCuenta: "13562069-6",
-  banco: "Scotiabank",
-  tipoCuenta: "Cuenta Corriente",
-  numeroCuenta: "975973239",
-  Motivo : "Pago números xxx",
-  MailAviso : "mb.valdes.avila@gmail.com",
+  nombreCuenta: "Margarita del carmen Alvarez",
+  rutCuenta: "9155390-2",
+  banco: "Estado de Chile",
+  tipoCuenta: "Vista",
+  numeroCuenta: "9155390",
+  Mail: "margaritaalvarezc@gmail.com",
+  Motivo: "Pago números xxx",
+ 
   
   whatsappAdmin: "56992191358",
-  emailAdmin: "quintanormal,imp@gmail.com",
+  emailAdmin: "quintanormal.imp@gmail.com",
   adminPassword: "Admin_IMPQN2026",
 
   // ─── SUPABASE ─────────────────────────────────────────────────────────────
