@@ -641,7 +641,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
           <div style={S.summaryDiv}/><div style={{textAlign:"right",color:gold,fontWeight:900}}>{formatCLP(total)}</div>
         </div>
         <div style={S.bankBox}>
-          {[["Banco",CONFIG.banco],["Cuenta",CONFIG.numeroCuenta],["Nombre",CONFIG.nombreCuenta],["RUT",CONFIG.rutCuenta]].map(([k,v])=>(
+          {[["Banco",CONFIG.banco],["Cuenta",CONFIG.numeroCuenta],["Nombre",CONFIG.nombreCuenta],["RUT",CONFIG.rutCuenta],["Mail Aviso",CONFIG.Mail]].map(([k,v])=>(
             <div key={k} style={S.bankRow}><span style={S.bankKey}>{k}:</span><span style={S.bankVal}>{v}</span></div>
           ))}
         </div>
