@@ -84,7 +84,7 @@ const formatRUT = (value) => {
 };
 
 // ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ───────────────────────────
-const validateRUT = (rutCompleto) => {
+/* const validateRUT = (rutCompleto) => {
   if (!rutCompleto) return false;
   const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
   if (rutLimpio.length < 8 || rutLimpio.length > 9) return false;
@@ -108,7 +108,7 @@ const validateRUT = (rutCompleto) => {
   else dvEsperado = String(resultado);
 
   return dvInput === dvEsperado;
-};
+}; */
 
 // ─── FORMATEADOR Y MÁSCARA DE CELULAR CHILENO (+56 9 XXXX XXXX) ───────────────
 const formatCelular = (value) => {
@@ -654,7 +654,6 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
         </div>
         <div style={S.fields}>
           <input placeholder="Nombre" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} style={S.input}/>
-          // <input placeholder="RUT" value={form.rut} onChange={e=>setForm({...form,rut:formatRUT(e.target.value)})} style={S.input}/>
           <input placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:cleanEmail(e.target.value)})} style={S.input}/>
           <input placeholder="+56 9 XXXX XXXX" value={form.telefono} onChange={e=>setForm({...form,telefono:formatCelular(e.target.value)})} style={S.input}/>
           
