@@ -1010,9 +1010,11 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
   const refrescarRifas = async () => {
     try { 
       const data = await db().getRifas(); 
-      setRifasLocales(data || []); 
+      setRifasLocales(data || []); // Actualiza la vista del admin
+      
+      // CORRECCIÓN AUTOMATIZADA: Actualiza el catálogo global inmediatamente
       if (onActualizarCatalogoGlobal) {
-        onActualizarCatalogoGlobal(data || []); // Inyecta los cambios en el componente raíz instantáneamente
+        onActualizarCatalogoGlobal(data || []);
       }
     } catch (e) { 
       console.error("Error al sincronizar catálogo:", e); 
