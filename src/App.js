@@ -440,7 +440,7 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const [tomados, setTomados] = useState(new Set());
   const [selected, setSelected] = useState(new Set());
   const [step, setStep] = useState("select");
-  const [form, setForm] = useState({ nombre: "", rut: "", email: "", telefono: "+56 9 " });
+  const [form, setForm] = useState({ nombre: "", email: "", telefono: "+56 9 " }); // RUT eliminado
   const [voucher, setVoucher] = useState(null);
   const [voucherPreview, setVoucherPreview] = useState(null);
   const [errors, setErrors] = useState({});
@@ -474,8 +474,8 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const handleSubmit = async () => {
     const e = {};
     if (!form.nombre || !form.nombre.trim()) e.nombre = "Requerido";
-    if (!form.rut || !form.rut.trim()) e.rut = "Requerido";
-    else if (!validateRUT(form.rut)) e.rut = "RUT inválido";
+    //if (!form.rut || !form.rut.trim()) e.rut = "Requerido";  // RUT eliminado
+    //else if (!validateRUT(form.rut)) e.rut = "RUT inválido"; // RUT eliminado
     
     const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
     if (!form.email || !form.email.trim()) e.email = "Requerido";
@@ -493,8 +493,15 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
       
       // Inserta el pedido base en la tabla
       let pedido = await db().insertPedido({
-        rifa_id: rifaActiva.id, nombre: form.nombre, rut: form.rut, email: form.email, telefono: form.telefono, numeros: nums, total, estado: "pendiente", voucher_url: null
-      });
+        rifa_id: rifaActiva.id, 
+        nombre: form.nombre, 
+        email: form.email, 
+        telefono: form.telefono, 
+        numeros: nums, 
+        total, 
+        estado: "pendiente", 
+        voucher_url: null
+      }); // RUT removido del payload de envío
       
       // Sube el comprobante y actualiza su URL en la base de datos
       const vUrl = await db().uploadVoucher(voucher, pedido.id);
@@ -647,7 +654,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
         </div>
         <div style={S.fields}>
           <input placeholder="Nombre" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} style={S.input}/>
-          <input placeholder="RUT" value={form.rut} onChange={e=>setForm({...form,rut:formatRUT(e.target.value)})} style={S.input}/>
+          // <input placeholder="RUT" value={form.rut} onChange={e=>setForm({...form,rut:formatRUT(e.target.value)})} style={S.input}/>
           <input placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:cleanEmail(e.target.value)})} style={S.input}/>
           <input placeholder="+56 9 XXXX XXXX" value={form.telefono} onChange={e=>setForm({...form,telefono:formatCelular(e.target.value)})} style={S.input}/>
           
@@ -1102,7 +1109,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
   const filtrados = pedidos.filter(p => {
     const okF = filtroEstado === "todos" || p.estado === filtroEstado;
     const q = search.toLowerCase();
-    return okF && (!q || p.nombre?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.rut?.includes(q));
+    return okF && (!q || p.nombre?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)); // Búsqueda por RUT eliminada
   });
 
   const paginatedAdmin = filtrados.slice(adminPage * ADMIN_PER_PAGE, (adminPage + 1) * ADMIN_PER_PAGE);
