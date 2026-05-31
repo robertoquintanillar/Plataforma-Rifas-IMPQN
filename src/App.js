@@ -419,7 +419,17 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitErr, setSubmitErr] = useState(null);
 
-  useEffect(() => { db().getNumerosTomados(rifaActiva.id).then(setTomados).catch(() => {}); }, [rifaActiva.id]);
+  // 1. Envolver la función de refresco en un useCallback para poder reutilizarla de manera eficiente
+  const refrescarNumerosTomados = useCallback(() => {
+    db().getNumerosTomados(rifaActiva.id)
+      .then(setTomados)
+      .catch((err) => console.error("Error al refrescar números:", err));
+  }, [rifaActiva.id]);
+
+  // Carga inicial al montar el componente
+  useEffect(() => { 
+    refrescarNumerosTomados(); 
+  }, [refrescarNumerosTomados]);
 
   const toggle = useCallback(n => {
     if (tomados.has(n)) return;
@@ -452,18 +462,43 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
     try {
       setSubmitting(true); setSubmitErr(null);
       const nums = [...selected].sort((a, b) => a - b);
+      
+      // Inserta el pedido base en la tabla
       let pedido = await db().insertPedido({
         rifa_id: rifaActiva.id, nombre: form.nombre, rut: form.rut, email: form.email, telefono: form.telefono, numeros: nums, total, estado: "pendiente", voucher_url: null
       });
+      
+      // Sube el comprobante y actualiza su URL en la base de datos
       const vUrl = await db().uploadVoucher(voucher, pedido.id);
       await db().updateVoucherUrl(pedido.id, vUrl);
+      
+      // Dispara automatizaciones de mensajería externas (Email y WhatsApp)
       await sendEmail({ ...form, numeros: nums, total, rifaActiva });
       notifyWhatsApp({ nombre: form.nombre, email: form.email, numeros: nums, total });
+      
+      // 2. CORRECCIÓN CLAVE: Sincronizar el estado de la base de datos con la interfaz antes del cambio de pantalla
+      refrescarNumerosTomados();
+      
       setStep("success");
-    } catch (err) { setSubmitErr("Ocurrió un error."); console.error(err); } finally { setSubmitting(false); }
+    } catch (err) { 
+      setSubmitErr("Ocurrió un error."); 
+      console.error(err); 
+    } finally { 
+      setSubmitting(false); 
+    }
   };
 
-  if (step === "success") return <SuccessView nombre={form.nombre} email={form.email} numeros={[...selected].sort((a,b)=>a-b)} total={total} rifaActiva={rifaActiva} onReset={() => { setStep("select"); setSelected(new Set()); setForm({ nombre: "", rut: "", email: "", telefono: "+56 9 " }); setVoucher(null); setVoucherPreview(null); }} />;
+  // 3. CORRECCIÓN CLAVE: Al resetear el flujo, volvemos a consultar para asegurar sincronía total
+  const handleResetFlujo = () => {
+    setStep("select");
+    setSelected(new Set());
+    setForm({ nombre: "", rut: "", email: "", telefono: "+56 9 " });
+    setVoucher(null);
+    setVoucherPreview(null);
+    refrescarNumerosTomados();
+  };
+
+  if (step === "success") return <SuccessView nombre={form.nombre} email={form.email} numeros={[...selected].sort((a,b)=>a-b)} total={total} rifaActiva={rifaActiva} onReset={handleResetFlujo} />;
   if (step === "form") return <FormView form={form} setForm={setForm} errors={errors} setErrors={setErrors} voucher={voucher} setVoucher={setVoucher} voucherPreview={voucherPreview} setVoucherPreview={setVoucherPreview} selected={selected} total={total} submitting={submitting} submitErr={submitErr} onBack={() => setStep("select")} onSubmit={handleSubmit} />;
   return <SelectView tomados={tomados} selected={selected} toggle={toggle} total={total} rifaActiva={rifaActiva} onContinue={() => setStep("form")} onBack={onVolverAlCatalogo} />;
 }
