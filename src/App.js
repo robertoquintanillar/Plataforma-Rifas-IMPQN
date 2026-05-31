@@ -15,7 +15,7 @@ const CONFIG = {
   maxPorPersona: 50,
   nombreIglesia: "Iglesia Metodista Pentecostal de Quinta Normal",
 
-  nombreCuenta: "Margarita del carmen Alvarez",
+  nombreCuenta: "Margarita del Carmen Alvarez",
   rutCuenta: "9155390-2",
   banco: "Estado de Chile",
   tipoCuenta: "Vista",
@@ -641,7 +641,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
           <div style={S.summaryDiv}/><div style={{textAlign:"right",color:gold,fontWeight:900}}>{formatCLP(total)}</div>
         </div>
         <div style={S.bankBox}>
-          {[["Banco",CONFIG.banco],["Cuenta Rut",CONFIG.numeroCuenta],["Nombre",CONFIG.nombreCuenta],["RUT",CONFIG.rutCuenta],["Mail Aviso",CONFIG.Mail]].map(([k,v])=>(
+          {[["Nombre",CONFIG.nombreCuenta],["RUT",CONFIG.rutCuenta],["Banco",CONFIG.banco],["Cuenta Rut",CONFIG.numeroCuenta],["Mail Aviso",CONFIG.Mail]].map(([k,v])=>(
             <div key={k} style={S.bankRow}><span style={S.bankKey}>{k}:</span><span style={S.bankVal}>{v}</span></div>
           ))}
         </div>
