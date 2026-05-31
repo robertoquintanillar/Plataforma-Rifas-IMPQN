@@ -324,7 +324,28 @@ export default function App() {
               <div style={S.brandSub}>Plataforma Oficial de Rifas Benéficas</div>
             </div>
           </div>
-          <button style={S.navBtn} onClick={() => setView(view === "rifa" ? "admin" : "rifa")}>
+          <button 
+            style={S.navBtn} 
+            onClick={async () => {
+              if (view === "admin") {
+                // 1. Antes de volver, traemos los datos frescos recién guardados del servidor
+                try {
+                  const rifasActualizadas = await db().getRifas();
+                  
+                  // 2. Si el usuario estaba editando una rifa, actualizamos su memoria activa en pantalla
+                  if (rifaActiva) {
+                    const rifaFresca = rifasActualizadas.find(r => r.id === rifaActiva.id);
+                    if (rifaFresca) setRifaActiva(rifaFresca);
+                  }
+                } catch (err) {
+                  console.error("Error al sincronizar al volver:", err);
+                }
+                setView("rifa");
+              } else {
+                setView("admin");
+              }
+            }}
+          >
             {view === "rifa" ? "⚙️ Admin" : "← Volver"}
           </button>
         </div>
