@@ -366,7 +366,13 @@ export default function App() {
               </div>
             </div>
           )}
-          {view === "admin" && adminAuthed && <AdminView listaRifas={rifas} onNavegarSorteo={() => setView("sorteo")} />}
+          {view === "admin" && adminAuthed && (
+            <AdminView 
+              listaRifas={rifas} 
+              onNavegarSorteo={() => setView("sorteo")} 
+              onActualizarCatalogoGlobal={(nuevasRifas) => setRifas(nuevasRifas)} 
+            />
+          )}
         </>
       )}
     </div>
@@ -969,8 +975,8 @@ function SorteoView({ onVolver }) {
   );
 }
 
-// ─── PANEL ADMINISTRATIVO PRINCIPAL ──────────────────────────────────────────
-function AdminView({ listaRifas, onNavegarSorteo }) {
+// ─── PANEL ADMINISTRATIVO PRINCIPAL CORREGIDO ──────────────────────────────────────────
+function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) {
   const [tab, setTab] = useState("comprobantes");
   const [rifasLocales, setRifasLocales] = useState(listaRifas || []);
   
@@ -1000,8 +1006,17 @@ function AdminView({ listaRifas, onNavegarSorteo }) {
     setLoading(false);
   }, [rifaSeleccionada]);
 
+  // CORRECCIÓN CLAVE: Sincroniza tanto el estado del admin como el catálogo global que ven los clientes
   const refrescarRifas = async () => {
-    try { const data = await db().getRifas(); setRifasLocales(data || []); } catch (e) { console.error(e); }
+    try { 
+      const data = await db().getRifas(); 
+      setRifasLocales(data || []); 
+      if (onActualizarCatalogoGlobal) {
+        onActualizarCatalogoGlobal(data || []); // Inyecta los cambios en el componente raíz instantáneamente
+      }
+    } catch (e) { 
+      console.error("Error al sincronizar catálogo:", e); 
+    }
   };
 
   useEffect(() => { cargarTotalesGlobales(); fetchPedidos(); }, [cargarTotalesGlobales, fetchPedidos]);
@@ -1187,13 +1202,11 @@ function AdminView({ listaRifas, onNavegarSorteo }) {
         </>
       )}
 
-      {/* ─── REQUERIMIENTO UNIFICADO: GESTIONAR RIFAS (CREAR, MODIFICAR, ELIMINAR) ─── */}
       {tab === "gestionar_rifas" && (
         <div style={{ animation: "fadeUp 0.35s ease", display: "flex", flexDirection: "column", gap: "30px" }}>
           
-          {/* SECCIÓN 1: FORMULARIO DINÁMICO (CREAR / EDITAR) */}
-          <div>
-            <h3 style={{ color: navy, marginBottom: 15, fontFamily: "'Playfair Display', serif" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <h3 style={{ color: navy, marginBottom: 5, fontFamily: "'Playfair Display', serif" }}>
               {editandoId ? "✏️ Modificar Configuración de Rifa" : "⛪ Registrar Nueva Campaña de Rifa"}
             </h3>
             <form onSubmit={handleGuardarRifa} style={{ background: "#fff", padding: 25, borderRadius: 12, display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 4px 15px rgba(0,0,0,0.03)", border: editandoId ? `2px solid ${gold}` : "1px solid #e0d9cc" }}>
@@ -1256,7 +1269,6 @@ function AdminView({ listaRifas, onNavegarSorteo }) {
             </form>
           </div>
 
-          {/* SECCIÓN 2: LISTADO GENERAL DE RIFAS EXISTENTES (MODIFICAR / ELIMINAR) */}
           <div>
             <h3 style={{ color: navy, marginBottom: 15, fontFamily: "'Playfair Display', serif" }}>⛪ Catálogo Total de Rifas Registradas</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
