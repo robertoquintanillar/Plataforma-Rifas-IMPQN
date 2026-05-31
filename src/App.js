@@ -440,7 +440,7 @@ function RifaView({ rifaActiva, onVolverAlCatalogo }) {
   const [tomados, setTomados] = useState(new Set());
   const [selected, setSelected] = useState(new Set());
   const [step, setStep] = useState("select");
-  const [form, setForm] = useState({ nombre: "", rut: "", email: "", telefono: "" });
+  const [form, setForm] = useState({ nombre: "", rut: "", email: "", telefono: "+56 9 " });
   const [voucher, setVoucher] = useState(null);
   const [voucherPreview, setVoucherPreview] = useState(null);
   const [errors, setErrors] = useState({});
@@ -649,7 +649,7 @@ function FormView({form,setForm,errors,setErrors,voucher,setVoucher,voucherPrevi
           <input placeholder="Nombre" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} style={S.input}/>
           <input placeholder="RUT" value={form.rut} onChange={e=>setForm({...form,rut:formatRUT(e.target.value)})} style={S.input}/>
           <input placeholder="Email" value={form.email} onChange={e=>setForm({...form,email:cleanEmail(e.target.value)})} style={S.input}/>
-          <input placeholder="Teléfono" value={form.telefono} onChange={e=>setForm({...form,telefono:formatCelular(e.target.value)})} style={S.input}/>
+          <input placeholder="+56 9 XXXX XXXX" value={form.telefono} onChange={e=>setForm({...form,telefono:formatCelular(e.target.value)})} style={S.input}/>
           
           <label style={S.uploadZone}>
             <input type="file" onChange={handleFile} style={{display:"none"}}/>
