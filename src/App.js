@@ -1342,30 +1342,55 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
 function PedidoCard({ pedido, onCambiar, updating }) {
   const [open, setOpen] = useState(false);
   const esPdf = pedido.voucher_url?.toLowerCase().endsWith(".pdf");
+
+  // CONFIGURACIÓN AUTOMATIZADA DE COLORES Y ETIQUETAS PARA LOS ESTADOS
+  const configEstado = {
+    pendiente: { texto: "⏳ Pendiente", fondo: "#fff3cd", color: "#856404", borde: "#ffeeba" },
+    confirmado: { texto: "✅ Aprobado", fondo: "#d4edda", color: "#155724", borde: "#c3e6cb" },
+    rechazado: { texto: "❌ Rechazado", fondo: "#f8d7da", color: "#721c24", borde: "#f5c6cb" }
+  };
+
+  const estadoActual = configEstado[pedido.estado] || { texto: pedido.estado, fondo: "#e2e3e5", color: "#383d41", borde: "#d6d8db" };
+
   return (
-    <div style={{ background: "#fff", padding: 15, borderRadius: 12, marginBottom: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
-      <div onClick={() => setOpen(!open)} style={{ display: "flex", justifyContent: "space-between", cursor: "pointer" }}>
+    <div style={{ background: "#fff", padding: 15, borderRadius: 12, marginBottom: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: `1px solid ${open ? gold : '#eee'}` }}>
+      <div onClick={() => setOpen(!open)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
         <div>
-          <strong>{pedido.nombre}</strong>
-          <p style={{ fontSize: 12, color: "#666" }}>{pedido.telefono} · {pedido.email}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <strong style={{ fontSize: "16px", color: navy }}>{pedido.nombre}</strong>
+            {/* TAG INFORMATIVO DE ESTADO INCORPORADO */}
+            <span style={{ 
+              fontSize: "11px", 
+              fontWeight: "bold", 
+              padding: "3px 8px", 
+              borderRadius: "6px", 
+              background: estadoActual.fondo, 
+              color: estadoActual.color,
+              border: `1px solid ${estadoActual.borde}`,
+              textTransform: "uppercase"
+            }}>
+              {estadoActual.texto}
+            </span>
+          </div>
+          <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{pedido.telefono} · {pedido.email}</p>
         </div>
         <div style={{ textAlign: "right" }}>
-          <span style={{ fontWeight: "bold" }}>{formatCLP(pedido.total)}</span>
-          <p style={{ fontSize: 11, color: gold }}>{open ? "▲ Ocultar" : "▼ Revisar"}</p>
+          <span style={{ fontWeight: "bold", fontSize: "16px", color: navy }}>{formatCLP(pedido.total)}</span>
+          <p style={{ fontSize: 11, color: gold, marginTop: 4 }}>{open ? "▲ Ocultar" : "▼ Revisar"}</p>
         </div>
       </div>
       {open && (
-        <div style={{ marginTop: 15, borderTop: "1px solid #eee", paddingTop: 10 }}>
+        <div style={{ marginTop: 15, borderTop: "1px solid #eee", paddingTop: 10 }} className="fade">
           <p style={{ fontSize: 13 }}>🔢 <strong>Números:</strong> {pedido.numeros?.map(pad).join(", ")}</p>
           {pedido.voucher_url ? (
             <div style={{ margin: "10px 0", textAlign: "center" }}>
-              {esPdf ? <iframe src={pedido.voucher_url} title="p" style={{ width: "100%", height: "300px" }}/> : <img src={pedido.voucher_url} alt="v" style={{ maxWidth: "100%", maxHeight: 250 }}/>}
+              {esPdf ? <iframe src={pedido.voucher_url} title="p" style={{ width: "100%", height: "300px" }}/> : <img src={pedido.voucher_url} alt="v" style={{ maxWidth: "100%", maxHeight: 250, borderRadius: 8, border: "1px solid #ddd" }}/>}
             </div>
           ) : <p style={{ color: rose }}>Sin comprobante</p>}
           {pedido.estado === "pendiente" && (
             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              <button onClick={() => onCambiar(pedido.id, "confirmado")} disabled={updating} style={{ background: emerald, color: "#fff", border: "none", padding: 8, borderRadius: 6, flex: 1 }}>Aprobar</button>
-              <button onClick={() => onCambiar(pedido.id, "rechazado")} disabled={updating} style={{ background: rose, color: "#fff", border: "none", padding: 8, borderRadius: 6, flex: 1 }}>Rechazar</button>
+              <button onClick={() => onCambiar(pedido.id, "confirmado")} disabled={updating} style={{ background: emerald, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}>Aprobar</button>
+              <button onClick={() => onCambiar(pedido.id, "rechazado")} disabled={updating} style={{ background: rose, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}>Rechazar</button>
             </div>
           )}
         </div>
