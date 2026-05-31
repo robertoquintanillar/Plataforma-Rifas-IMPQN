@@ -567,7 +567,7 @@ function SelectView({ tomados, selected, toggle, total, rifaActiva, onContinue, 
   };
 
   return (
-    <main style={S.main}>
+      <main style={{ ...S.main, paddingBottom: "140px" }}>
       <button style={{ ...S.backBtn, marginBottom: 12 }} onClick={onBack}>← Volver al Catálogo</button>
       <div style={S.hero} className="fade">
         <div style={S.heroBadge}>🎯 {rifaActiva.motivo || "Campaña"}</div>
