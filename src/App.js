@@ -1354,7 +1354,7 @@ function PedidoCard({ pedido, onCambiar, updating }) {
 
   return (
     <div style={{ background: "#fff", padding: 15, borderRadius: 12, marginBottom: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: `1px solid ${open ? gold : '#eee'}` }}>
-      <div onClick={() => setOpen(!open)} style={{ display: "flex", justify盤Content: "space-between", alignItems: "center", cursor: "pointer" }}>
+      <div onClick={() => setOpen(!open)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <strong style={{ fontSize: "16px", color: navy }}>{pedido.nombre}</strong>
