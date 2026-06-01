@@ -1354,7 +1354,7 @@ function PedidoCard({ pedido, onCambiar, updating }) {
 
   return (
     <div style={{ background: "#fff", padding: 15, borderRadius: 12, marginBottom: 10, boxShadow: "0 2px 8px rgba(0,0,0,0.05)", border: `1px solid ${open ? gold : '#eee'}` }}>
-      <div onClick={() => setOpen(!open)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+      <div onClick={() => setOpen(!open)} style={{ display: "flex", justify盤Content: "space-between", alignItems: "center", cursor: "pointer" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <strong style={{ fontSize: "16px", color: navy }}>{pedido.nombre}</strong>
@@ -1387,12 +1387,32 @@ function PedidoCard({ pedido, onCambiar, updating }) {
               {esPdf ? <iframe src={pedido.voucher_url} title="p" style={{ width: "100%", height: "300px" }}/> : <img src={pedido.voucher_url} alt="v" style={{ maxWidth: "100%", maxHeight: 250, borderRadius: 8, border: "1px solid #ddd" }}/>}
             </div>
           ) : <p style={{ color: rose }}>Sin comprobante</p>}
-          {pedido.estado === "pendiente" && (
-            <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-              <button onClick={() => onCambiar(pedido.id, "confirmado")} disabled={updating} style={{ background: emerald, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}>Aprobar</button>
-              <button onClick={() => onCambiar(pedido.id, "rechazado")} disabled={updating} style={{ background: rose, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}>Rechazar</button>
-            </div>
-          )}
+
+          {/* SOLUCIÓN ARQUITECTÓNICA: BOTONES DE ACCIÓN DINÁMICOS Y BIDIRECCIONALES (CORREGIDO) */}  
+          <div style={{ display: "flex", gap: 10, marginTop: 15 }}>
+            {/* El botón de Aprobar aparece si el pedido está pendiente O si fue rechazado previamente */}
+            {(pedido.estado === "pendiente" || pedido.estado === "rechazado") && (
+              <button 
+                onClick={() => onCambiar(pedido.id, "confirmado")} 
+                disabled={updating} 
+                style={{ background: emerald, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}
+              >
+                {pedido.estado === "rechazado" ? "🔄 Re-Aprobar Pedido" : "Aprobar"}
+              </button>
+            )}
+
+            {/* El botón de Caldera/Rechazar aparece si el pedido está pendiente O si fue aprobado previamente */}
+            {(pedido.estado === "pendiente" || pedido.estado === "confirmado") && (
+              <button 
+                onClick={() => onCambiar(pedido.id, "rechazado")} 
+                disabled={updating} 
+                style={{ background: rose, color: "#fff", border: "none", padding: 10, borderRadius: 8, flex: 1, fontWeight: "bold", cursor: "pointer" }}
+              >
+                {pedido.estado === "confirmado" ? "🚨 Anular y Rechazar" : "Rechazar"}
+              </button>
+            )}
+          </div>
+          
         </div>
       )}
     </div>
