@@ -60,55 +60,6 @@ const pad = (n) => {
   return isNaN(numeroLimpio) ? "0" : String(numeroLimpio);
 };
 
-// ─── FORMATEADOR Y MÁSCARA DE RUT CHILENO ─────────────────────────────────────
-/* const formatRUT = (value) => {
-  if (!value) return "";
-  let rut = value.replace(/[^0-9kK]/g, "").toUpperCase();
-  if (rut.length > 9) rut = rut.slice(0, 9);
-  if (rut.length === 0) return "";
-
-  const dv = rut.slice(-1);
-  const cuerpo = rut.slice(0, -1);
-  if (cuerpo.length === 0) return dv;
-
-  let cuerpoFormateado = "";
-  if (cuerpo.length <= 3) {
-    cuerpoFormateado = cuerpo;
-  } else if (cuerpo.length <= 6) {
-    cuerpoFormateado = `${cuerpo.slice(0, -3)}.${cuerpo.slice(-3)}`;
-  } else {
-    cuerpoFormateado = `${cuerpo.slice(0, -6)}.${cuerpo.slice(-6, -3)}.${cuerpo.slice(-3)}`;
-  }
-  return `${cuerpoFormateado}-${dv}`;
-};
- */
-// ─── VALIDACIÓN MATEMÁTICA DEL RUT (MÓDULO 11) ───────────────────────────
-/* const validateRUT = (rutCompleto) => {
-  if (!rutCompleto) return false;
-  const rutLimpio = rutCompleto.replace(/[^0-9kK]/g, "");
-  if (rutLimpio.length < 8 || rutLimpio.length > 9) return false;
-
-  const dvInput = rutLimpio.slice(-1).toUpperCase();
-  const cuerpo = rutLimpio.slice(0, -1);
-
-  let suma = 0;
-  let multiplicador = 2;
-  for (let i = cuerpo.length - 1; i >= 0; i--) {
-    suma += parseInt(cuerpo[i], 10) * multiplicador;
-    multiplicador = multiplicador === 7 ? 2 : multiplicador + 1;
-  }
-
-  const residuo = suma % 11;
-  const resultado = 11 - residuo;
-  
-  let dvEsperado = "";
-  if (resultado === 11) dvEsperado = "0";
-  else if (resultado === 10) dvEsperado = "K";
-  else dvEsperado = String(resultado);
-
-  return dvInput === dvEsperado;
-}; */
-
 // ─── FORMATEADOR Y MÁSCARA DE CELULAR CHILENO (+56 9 XXXX XXXX) ───────────────
 const formatCelular = (value) => {
   if (!value) return "+56 9 ";
