@@ -3,7 +3,7 @@ import React from 'react';
 import confetti from 'canvas-confetti';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚙️  CONFIGURACIÓN — Edita estos valores antes de publicar
+// ⚙️  CONFIGURACIÓN — Centralizada para Producción y Test
 // ─────────────────────────────────────────────────────────────────────────────
 const CONFIG = {
   totalNumeros: 2000,
@@ -23,25 +23,24 @@ const CONFIG = {
   Mail: "margaritaalvarezc@gmail.com",
   Motivo: "Pago números xxx",
  
-  
   whatsappAdmin: "56992191358",
   emailAdmin: "quintanormal.imp@gmail.com",
   adminPassword: "Admin_IMPQN2026",
 
-  // ─── SUPABASE ─────────────────────────────────────────────────────────────
-  supabaseUrl: "https://ykqbswfbampfjyxwivvn.supabase.co",
-  supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcWJzd2ZiYW1wZmp5eHdpdnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5Nzk1OTEsImV4cCI6MjA5NDU1NTU5MX0.rxN-FGF6JuSNKWpNjVqhmTigJm2L8IHhuRtjJI4oB-0",
+  // ─── SUPABASE (Dinámico: usa variables de entorno en Vercel) ────────────────
+  supabaseUrl: process.env.REACT_APP_SUPABASE_URL || "https://ykqbswfbampfjyxwivvn.supabase.co",
+  supabaseKey: process.env.REACT_APP_SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlrcWJzd2ZiYW1wZmp5eHdpdnZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5Nzk1OTEsImV4cCI6MjA5NDU1NTU5MX0.rxN-FGF6JuSNKWpNjVqhmTigJm2L8IHhuRtjJI4oB-0",
 
   // ─── RESEND (correos) ─────────────────────────────────────────────────────
-  resendApiKey: "re_LViYq1tr_6UywE63tXwJfEQUNezGzyjYU",
+  resendApiKey: process.env.REACT_APP_RESEND_API_KEY || "re_LViYq1tr_6UywE63tXwJfEQUNezGzyjYU",
   resendFromEmail: "rifa@impquintanormal.cl",
 
-  // ─── NUEVA SECCIÓN DE COLORES ─────────────────────────────────────────────
+  // ─── COLORES ─────────────────────────────────────────────────────────────
   colores: {
     primario: "#0B3B7B", // Azul Institucional
     acento: "#BE2329",   // Rojo Acento
-    fondo: "#FFFFFF",   // Blanco
-    textoHeader: "#FFFFFF", // Texto blanco sobre fondo azul
+    fondo: "#FFFFFF",    // Blanco
+    textoHeader: "#FFFFFF", 
     oro: "#c9a84c"
   },
 };
