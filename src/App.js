@@ -1334,7 +1334,17 @@ function PedidoCard({ pedido, onCambiar, updating }) {
           <p style={{ fontSize: 13 }}>🔢 <strong>Números:</strong> {pedido.numeros?.map(pad).join(", ")}</p>
           {pedido.voucher_url ? (
             <div style={{ margin: "10px 0", textAlign: "center" }}>
-              {esPdf ? <iframe src={pedido.voucher_url} title="p" style={{ width: "100%", height: "300px" }}/> : <img src={pedido.voucher_url} alt="v" style={{ maxWidth: "100%", maxHeight: 250, borderRadius: 8, border: "1px solid #ddd" }}/>}
+              {esPdf ? (
+                <iframe src={pedido.voucher_url} title="p" style={{ width: "100%", height: "300px" }}/>
+              ) : (
+                <a href={pedido.voucher_url} target="_blank" rel="noopener noreferrer" style={{ cursor: "zoom-in" }}>
+                  <img 
+                    src={pedido.voucher_url} 
+                    alt="Comprobante de pago" 
+                    style={{ maxWidth: "100%", maxHeight: 250, borderRadius: 8, border: "1px solid #ddd" }}
+                  />
+                </a>
+              )}
             </div>
           ) : <p style={{ color: rose }}>Sin comprobante</p>}
 
