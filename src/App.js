@@ -634,29 +634,26 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 
 // ─── SORTEOS CON IDENTIFICACIÓN DE COMPRADORES ───────────────────────────────
 function SorteoView({ onVolver }) {
-  const [rifas, setRifas] = useState([]);
+  // Estados esenciales para el sorteo manual
   const [rifaSeleccionada, setRifaSeleccionada] = useState(null);
-  const [claveAdmin, setClaveAdmin] = useState("");
-  const [autorizado, setAutorizado] = useState(false);
   const [numerosValidos, setNumerosValidos] = useState([]);
-  
-  const [premiosDisponibles, setPremiosDisponibles] = useState([]);
   const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
-
-  // Estados nuevos para control manual
+  
   const [sorteando, setSorteando] = useState(false);
-  const [pasoActual, setPasoActual] = useState(0); // 0: espera, 1: agua, 2: ganador
+  const [pasoActual, setPasoActual] = useState(0); 
   const [pozoActual, setPozoActual] = useState([]);
   const [premioActual, setPremioActual] = useState("");
 
-  const [historialExtracciones, setHistorialExtracciones] = useState([]);
   const [numeroDestacado, setNumeroDestacado] = useState("----");
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
-  const [tandasAnteriores, setTandasAnteriores] = useState([]);
   const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
   const [mapaCompradores, setMapaCompradores] = useState({});
 
-  useEffect(() => { db().getRifas().then(setRifas).catch(console.error); }, []);
+  // Carga inicial
+  useEffect(() => {
+    // Si necesitas listar rifas aquí, agrégalo de nuevo, 
+    // pero mantén solo lo que se renderice en el UI.
+  }, []);
 
   const cargarHistorialSorteos = useCallback((rifaId) => {
     const url = CONFIG.supabaseUrl;
@@ -666,7 +663,6 @@ function SorteoView({ onVolver }) {
     fetch(`${url}/rest/v1/sorteos_log?rifa_id=eq.${rifaId}&order=created_at.desc`, { headers: h })
       .then(r => r.json())
       .then(logs => {
-        setTandasAnteriores(logs || []);
         const yaGanaron = (logs || []).map(log => Number(log.numero_ganador));
         setNumerosYaGanadores(new Set(yaGanaron));
       })
@@ -696,7 +692,6 @@ function SorteoView({ onVolver }) {
 
       cargarHistorialSorteos(rifaSeleccionada.id);
       const disponibles = (rifaSeleccionada.premios || []);
-      setPremiosDisponibles(disponibles);
       setPremioSeleccionadoForm(disponibles[0] || "");
     }
   }, [rifaSeleccionada, cargarHistorialSorteos]);
@@ -711,9 +706,9 @@ function SorteoView({ onVolver }) {
   };
 
   const ejecutarSorteoPasoAPaso = async () => {
+    if (!rifaSeleccionada) return;
     const nAlAgua = Number(rifaSeleccionada.n_al_agua);
 
-    // INICIAR SORTEO
     if (!sorteando) {
       const listaValidos = Array.from(numerosValidos).filter(n => !numerosYaGanadores.has(n));
       if (listaValidos.length <= nAlAgua) { alert("Números insuficientes."); return; }
@@ -721,26 +716,16 @@ function SorteoView({ onVolver }) {
       setSorteando(true);
       setPozoActual([...listaValidos].sort(() => Math.random() - 0.5));
       setPremioActual(premioSeleccionadoForm);
-      setHistorialExtracciones([]);
       setPasoActual(1);
-      setEstadoAnuncio(`💧 Inicio: ${nAlAgua} números al agua antes del ganador.`);
+      setEstadoAnuncio(`💧 Inicio: ${nAlAgua} números al agua.`);
       setNumeroDestacado("----");
-    } 
-    // EXTRACCIÓN PASO A PASO
-    else {
+    } else {
       if (pasoActual <= nAlAgua) {
-        // Extraer Agua
-        const numAgua = pozoActual[pasoActual - 1];
-        const datos = mapaCompradores[numAgua] || { nombre: "No identificado", celular: "S/N" };
-        setHistorialExtracciones(prev => [...prev, { numero: numAgua, tipo: 'agua', ...datos }]);
-        setNumeroDestacado(String(numAgua));
+        setNumeroDestacado(String(pozoActual[pasoActual - 1]));
         setEstadoAnuncio(`💧 Al Agua (${pasoActual} de ${nAlAgua}) - Presione para seguir`);
         setPasoActual(pasoActual + 1);
       } else {
-        // Extraer Ganador
         const numGanador = pozoActual[nAlAgua];
-        const datos = mapaCompradores[numGanador] || { nombre: "No identificado", celular: "S/N" };
-        setHistorialExtracciones(prev => [...prev, { numero: numGanador, tipo: 'ganador', ...datos }]);
         setNumeroDestacado(String(numGanador));
         setEstadoAnuncio(`👑 ¡GANADOR DEL ${premioActual.toUpperCase()}!`);
         
@@ -759,19 +744,17 @@ function SorteoView({ onVolver }) {
 
   return (
     <main style={{ padding: '20px', maxWidth: '1000px', margin: '40px auto', color: '#ffffff' }}>
-      {/* ... (Mantener resto del JSX visual igual) ... */}
       <div style={{ background: '#0b0f19', border: '3px solid #d4af37', borderRadius: '20px', padding: '40px', textAlign: 'center' }}>
         <div style={{ fontSize: '100px', fontWeight: '800', margin: '20px 0', fontFamily: 'monospace' }}>{numeroDestacado}</div>
         <h3 style={{ color: '#d4af37' }}>{estadoAnuncio}</h3>
         <button 
           onClick={ejecutarSorteoPasoAPaso} 
-          disabled={!premioSeleccionadoForm || (sorteando && pasoActual > (Number(rifaSeleccionada?.n_al_agua || 0) + 1))}
+          disabled={!premioSeleccionadoForm}
           style={{ background: '#16a34a', padding: '15px 30px', border: 'none', borderRadius: 30, fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}
         >
           {sorteando ? "⏩ Extraer Siguiente" : "🎲 Iniciar Nueva Tanda"}
         </button>
       </div>
-      {/* ... (Mantener resto del JSX visual igual) ... */}
     </main>
   );
 }
