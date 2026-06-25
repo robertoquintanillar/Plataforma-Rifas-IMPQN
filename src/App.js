@@ -648,7 +648,8 @@ function SorteoView({ onVolver }) {
   const [numeroDestacado, setNumeroDestacado] = useState("----");
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
   const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
-  
+  const [mapaCompradores, setMapaCompradores] = useState({});
+
   // Carga inicial
   useEffect(() => {
     // Si necesitas listar rifas aquí, agrégalo de nuevo, 
