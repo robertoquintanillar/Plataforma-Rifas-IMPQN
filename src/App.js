@@ -634,9 +634,8 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 
 // ─── SORTEOS CON IDENTIFICACIÓN DE COMPRADORES ───────────────────────────────
 function SorteoView({ onVolver }) {
-  // Estados esenciales para el sorteo manual
-// Eliminadas: setRifaSeleccionada y mapaCompradores
-  const [rifaSeleccionada, setRifaSeleccionada] = useState(null); // 'setRifaSeleccionada' se usa en el select, mantén solo el estado
+// --- ESTADOS LIMPIOS ---
+  const [rifaSeleccionada, setRifaSeleccionada] = useState(null); 
   const [numerosValidos, setNumerosValidos] = useState([]);
   const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
   
@@ -648,7 +647,6 @@ function SorteoView({ onVolver }) {
   const [numeroDestacado, setNumeroDestacado] = useState("----");
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
   const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
-  const [mapaCompradores, setMapaCompradores] = useState({});
 
   // Carga inicial
   useEffect(() => {
