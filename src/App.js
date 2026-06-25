@@ -844,7 +844,10 @@ function SorteoView({ onVolver }) {
 
           {rifaSeleccionada && (
             <>
-              <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              //<div style={{ background: '#111827', borderRadius: '12px', padding: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ margin: '10px 0', padding: '10px', background: '#1e293b', borderRadius: 6 }}>
+    Campaña activa: <strong>{rifaSeleccionada.titulo}</strong>
+  </div>
                 <label style={{ color: '#d4af37', fontWeight: 'bold' }}>2. Premio a disputar:</label>
                 {premiosDisponibles.length === 0 ? (
                   <p style={{ color: '#ef4444', marginTop: '10px', fontWeight: 'bold' }}>⚠️ Todos los premios de esta campaña ya fueron sorteados.</p>
