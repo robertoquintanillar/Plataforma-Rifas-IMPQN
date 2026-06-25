@@ -634,8 +634,8 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 
 // ─── SORTEOS CON IDENTIFICACIÓN DE COMPRADORES ───────────────────────────────
 function SorteoView({ onVolver }) {
-// --- ESTADOS LIMPIOS ---
-  const [rifaSeleccionada, setRifaSeleccionada] = useState(null); 
+  const [rifaSeleccionada, setRifaSeleccionada] = useState(null);
+  const [rifas, setRifas] = useState([]);
   const [numerosValidos, setNumerosValidos] = useState([]);
   const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
   
@@ -648,10 +648,8 @@ function SorteoView({ onVolver }) {
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
   const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
 
-  // Carga inicial
-  useEffect(() => {
-    // Si necesitas listar rifas aquí, agrégalo de nuevo, 
-    // pero mantén solo lo que se renderice en el UI.
+  useEffect(() => { 
+    db().getRifas().then(setRifas).catch(console.error); 
   }, []);
 
   const cargarHistorialSorteos = useCallback((rifaId) => {
@@ -671,38 +669,11 @@ function SorteoView({ onVolver }) {
   useEffect(() => {
     if (rifaSeleccionada) {
       db().getNumerosConfirmadosParaSorteo(rifaSeleccionada.id).then(setNumerosValidos).catch(console.error);
-      
-      const url = CONFIG.supabaseUrl;
-      const key = CONFIG.supabaseKey;
-      const h = { "apikey": key, "Authorization": `Bearer ${key}` };
-
-      fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaSeleccionada.id}&estado=eq.confirmado`, { headers: h })
-        .then(res => res.json())
-        .then(pedidos => {
-          const nuevoMapa = {};
-          (pedidos || []).forEach(p => {
-            const lista = Array.isArray(p.numeros) ? p.numeros : (JSON.parse(p.numeros || "[]"));
-            lista.forEach(num => {
-              nuevoMapa[Number(num)] = { nombre: p.nombre, celular: p.telefono };
-            });
-          });
-          setMapaCompradores(nuevoMapa);
-        }).catch(console.error);
-
       cargarHistorialSorteos(rifaSeleccionada.id);
       const disponibles = (rifaSeleccionada.premios || []);
       setPremioSeleccionadoForm(disponibles[0] || "");
     }
   }, [rifaSeleccionada, cargarHistorialSorteos]);
-
-  const lanzarFuegos = () => {
-    const fin = Date.now() + 3 * 1000;
-    (function frame() {
-      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#d4af37', '#ffffff'] });
-      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#d4af37', '#ffffff'] });
-      if (Date.now() < fin) requestAnimationFrame(frame);
-    }());
-  };
 
   const ejecutarSorteoPasoAPaso = async () => {
     if (!rifaSeleccionada) return;
@@ -734,7 +705,7 @@ function SorteoView({ onVolver }) {
         });
         
         cargarHistorialSorteos(rifaSeleccionada.id);
-        lanzarFuegos();
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         setSorteando(false);
         setPasoActual(0);
       }
@@ -743,6 +714,11 @@ function SorteoView({ onVolver }) {
 
   return (
     <main style={{ padding: '20px', maxWidth: '1000px', margin: '40px auto', color: '#ffffff' }}>
+      <select onChange={e => setRifaSeleccionada(rifas.find(r => r.id === e.target.value))} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginBottom: '20px' }}>
+        <option value="">-- Seleccionar Rifa --</option>
+        {rifas.map(r => <option key={r.id} value={r.id}>{r.titulo}</option>)}
+      </select>
+
       <div style={{ background: '#0b0f19', border: '3px solid #d4af37', borderRadius: '20px', padding: '40px', textAlign: 'center' }}>
         <div style={{ fontSize: '100px', fontWeight: '800', margin: '20px 0', fontFamily: 'monospace' }}>{numeroDestacado}</div>
         <h3 style={{ color: '#d4af37' }}>{estadoAnuncio}</h3>
