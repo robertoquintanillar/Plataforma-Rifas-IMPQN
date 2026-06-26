@@ -636,19 +636,24 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 function SorteoView({ onVolver }) {
   const [rifas, setRifas] = useState([]);
   const [rifaSeleccionada, setRifaSeleccionada] = useState(null);
+  const [claveAdmin, setClaveAdmin] = useState("");
+  const [autorizado, setAutorizado] = useState(false);
   const [numerosValidos, setNumerosValidos] = useState([]);
-  const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
   
+  const [premiosDisponibles, setPremiosDisponibles] = useState([]);
+  const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
+
   const [sorteando, setSorteando] = useState(false);
-  const [pasoActual, setPasoActual] = useState(0);
+  const [pasoActual, setPasoActual] = useState(0); 
   const [pozoActual, setPozoActual] = useState([]);
   const [premioActual, setPremioActual] = useState("");
 
+  const [historialExtracciones, setHistorialExtracciones] = useState([]);
   const [numeroDestacado, setNumeroDestacado] = useState("----");
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
-  const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
-  const [historialExtracciones, setHistorialExtracciones] = useState([]);
   const [tandasAnteriores, setTandasAnteriores] = useState([]);
+  const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
+  const [mapaCompradores, setMapaCompradores] = useState({});
 
   useEffect(() => { db().getRifas().then(setRifas).catch(console.error); }, []);
 
@@ -656,96 +661,289 @@ function SorteoView({ onVolver }) {
     const url = CONFIG.supabaseUrl;
     const key = CONFIG.supabaseKey;
     const h = { "apikey": key, "Authorization": `Bearer ${key}` };
+
     fetch(`${url}/rest/v1/sorteos_log?rifa_id=eq.${rifaId}&order=created_at.desc`, { headers: h })
       .then(r => r.json())
       .then(logs => {
         setTandasAnteriores(logs || []);
-        setNumerosYaGanadores(new Set((logs || []).map(log => Number(log.numero_ganador))));
+        const yaGanaron = (logs || []).map(log => Number(log.numero_ganador));
+        setNumerosYaGanadores(new Set(yaGanaron));
+        
+        if (rifaSeleccionada) {
+          const premiosYaSorteados = (logs || []).map(log => log.premio_nombre);
+          const premiosOriginales = rifaSeleccionada.premios || [];
+          const disponibles = premiosOriginales.filter(p => !premiosYaSorteados.includes(p));
+          setPremiosDisponibles(disponibles);
+          setPremioSeleccionadoForm(disponibles[0] || "");
+        }
       })
-      .catch(console.error);
-  }, []);
+      .catch(err => console.error("Error cargando logs de sorteos:", err));
+  }, [rifaSeleccionada]);
 
   useEffect(() => {
     if (rifaSeleccionada) {
-      db().getNumerosConfirmadosParaSorteo(rifaSeleccionada.id).then(setNumerosValidos).catch(console.error);
+      const url = CONFIG.supabaseUrl;
+      const key = CONFIG.supabaseKey;
+      const h = { "apikey": key, "Authorization": `Bearer ${key}` };
+
+      db().getNumerosConfirmadosParaSorteo(rifaSeleccionada.id)
+        .then(setNumerosValidos)
+        .catch(console.error);
+
+      fetch(`${url}/rest/v1/pedidos?rifa_id=eq.${rifaSeleccionada.id}&estado=eq.confirmado`, { headers: h })
+        .then(res => res.json())
+        .then(pedidos => {
+          const nuevoMapa = {};
+          (pedidos || []).forEach(p => {
+            let listaNumeros = [];
+            if (typeof p.numeros === 'string') {
+              try { listaNumeros = JSON.parse(p.numeros); } catch(e) { listaNumeros = []; }
+            } else if (Array.isArray(p.numeros)) {
+              listaNumeros = p.numeros;
+            }
+
+            listaNumeros.forEach(num => {
+              nuevoMapa[Number(num)] = {
+                nombre: p.nombre || "Sin Nombre",
+                celular: p.telefono || "Sin Celular"
+              };
+            });
+          });
+          setMapaCompradores(nuevoMapa);
+        })
+        .catch(err => console.error("Error creando mapa de compradores:", err));
+
       cargarHistorialSorteos(rifaSeleccionada.id);
-      setPremioSeleccionadoForm(rifaSeleccionada.premios?.[0] || "");
+    } else {
+      setNumerosValidos([]);
+      setPremiosDisponibles([]);
+      setPremioSeleccionadoForm("");
+      setTandasAnteriores([]);
+      setNumerosYaGanadores(new Set());
+      setMapaCompradores({});
     }
   }, [rifaSeleccionada, cargarHistorialSorteos]);
 
-  const lanzarFuegos = () => {
-    const fin = Date.now() + 3 * 1000;
+  const lanzarFuegosArtificiales = () => {
+    const duracion = 5 * 1000;
+    const fin = Date.now() + duracion;
     (function frame() {
-      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#d4af37', '#ffffff'] });
-      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#d4af37', '#ffffff'] });
+      confetti({ particleCount: 6, angle: 60, spread: 60, origin: { x: 0, y: 0.6 }, colors: ['#d4af37', '#ffffff', '#1e3a8a'] });
+      confetti({ particleCount: 6, angle: 120, spread: 60, origin: { x: 1, y: 0.6 }, colors: ['#d4af37', '#ffffff', '#1e3a8a'] });
       if (Date.now() < fin) requestAnimationFrame(frame);
     }());
   };
 
-  const ejecutarSorteoPasoAPaso = async () => {
-    if (!rifaSeleccionada) return;
+  const ejecutarSorteoEfecto = async () => {
+    if (!premioSeleccionadoForm) {
+      alert("Por favor, seleccione un premio válido.");
+      return;
+    }
+
     const nAlAgua = Number(rifaSeleccionada.n_al_agua);
 
     if (!sorteando) {
-      const listaValidos = Array.from(numerosValidos).filter(n => !numerosYaGanadores.has(n));
-      if (listaValidos.length <= nAlAgua) { alert("Números insuficientes."); return; }
+      const listaNumerosValidos = Array.from(numerosValidos)
+        .map(n => Number(n))
+        .filter(n => !numerosYaGanadores.has(n));
+
+      if (!listaNumerosValidos.length) { 
+        alert("No quedan números disponibles para sortear."); 
+        return; 
+      }
+      if (listaNumerosValidos.length <= nAlAgua) { 
+        alert(`Se necesitan más de ${nAlAgua} números disponibles.`); 
+        return; 
+      }
+
       setSorteando(true);
-      setPozoActual([...listaValidos].sort(() => Math.random() - 0.5));
+      setPozoActual([...listaNumerosValidos].sort(() => Math.random() - 0.5));
       setPremioActual(premioSeleccionadoForm);
+      setHistorialExtracciones([]);
       setPasoActual(1);
-      setEstadoAnuncio(`💧 Inicio: ${nAlAgua} números al agua.`);
+      setEstadoAnuncio(`Moviendo tómbola...`);
       setNumeroDestacado("----");
     } else {
       if (pasoActual <= nAlAgua) {
-        const num = pozoActual[pasoActual - 1];
-        setHistorialExtracciones(prev => [...prev, { numero: num, tipo: 'agua' }]);
-        setNumeroDestacado(String(num));
-        setEstadoAnuncio(`💧 Al Agua (${pasoActual} de ${nAlAgua})`);
+        const numAgua = pozoActual[pasoActual - 1];
+        const datosDueno = mapaCompradores[numAgua] || { nombre: "No identificado", celular: "S/N" };
+        setHistorialExtracciones(prev => [...prev, { numero: numAgua, tipo: 'agua', ...datosDueno }]);
+        setNumeroDestacado(String(numAgua));
+        setEstadoAnuncio(`💧 ¡AL AGUA! (${pasoActual} de ${nAlAgua})`);
         setPasoActual(pasoActual + 1);
       } else {
         const numGanador = pozoActual[nAlAgua];
-        setHistorialExtracciones(prev => [...prev, { numero: numGanador, tipo: 'ganador' }]);
+        const datosDueno = mapaCompradores[numGanador] || { nombre: "No identificado", celular: "S/N" };
+        setHistorialExtracciones(prev => [...prev, { numero: numGanador, tipo: 'ganador', ...datosDueno }]);
         setNumeroDestacado(String(numGanador));
         setEstadoAnuncio(`👑 ¡GANADOR DEL ${premioActual.toUpperCase()}!`);
-        await db().guardarResultadoSorteo({
-          rifa_id: rifaSeleccionada.id, premio_nombre: premioActual, 
-          numero_ganador: Number(numGanador), numeros_agua: pozoActual.slice(0, nAlAgua)
-        });
-        cargarHistorialSorteos(rifaSeleccionada.id);
-        lanzarFuegos();
+        
+        try {
+          const arrayAgua = pozoActual.slice(0, nAlAgua).map(n => Number(n));
+          await db().guardarResultadoSorteo({
+            rifa_id: rifaSeleccionada.id, 
+            premio_nombre: premioActual, 
+            numero_ganador: Number(numGanador), 
+            numeros_agua: arrayAgua
+          });
+          cargarHistorialSorteos(rifaSeleccionada.id);
+        } catch (err) { console.error("Error guardando log:", err); }
+
+        lanzarFuegosArtificiales();
         setSorteando(false);
         setPasoActual(0);
       }
     }
   };
 
+  const verificarAcceso = (e) => {
+    e.preventDefault();
+    if (claveAdmin === CONFIG.adminPassword) setAutorizado(true);
+    else alert("Clave incorrecta.");
+  };
+
   return (
     <main style={{ padding: '20px', maxWidth: '1000px', margin: '40px auto', color: '#ffffff' }}>
-      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
-        <label style={{ color: '#d4af37', fontWeight: 'bold' }}>1. Seleccione la Campaña:</label>
-        <select onChange={e => setRifaSeleccionada(rifas.find(r => r.id === e.target.value))} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginTop: '10px', borderRadius: 6 }}>
-          <option value="">-- Seleccionar Rifa --</option>
-          {rifas.map(r => <option key={r.id} value={r.id}>{r.titulo}</option>)}
-        </select>
+      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <h2 style={{ color: '#d4af37' }}>{CONFIG.nombreIglesia}</h2>
+        <p style={{ opacity: 0.8, fontSize: '14px' }}>MÓDULO DE SORTEOS — V2.0</p>
       </div>
 
-      <div style={{ background: '#0b0f19', border: '3px solid #d4af37', borderRadius: '20px', padding: '40px', textAlign: 'center' }}>
-        <div style={{ fontSize: '100px', fontWeight: '800', margin: '20px 0', fontFamily: 'monospace' }}>{numeroDestacado}</div>
-        <h3 style={{ color: '#d4af37' }}>{estadoAnuncio}</h3>
-        <button onClick={ejecutarSorteoPasoAPaso} disabled={!premioSeleccionadoForm} style={{ background: '#16a34a', padding: '15px 30px', border: 'none', borderRadius: 30, fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}>
-          {sorteando ? "⏩ Extraer Siguiente" : "🎲 Iniciar Nueva Tanda"}
-        </button>
-      </div>
+      {!autorizado ? (
+        <div style={{ background: '#111827', border: '2px solid #d4af37', borderRadius: '12px', padding: '30px' }}>
+          <h3>🔐 Validación de Autoridad</h3>
+          <form onSubmit={verificarAcceso}>
+            <input type="password" value={claveAdmin} onChange={e => setClaveAdmin(e.target.value)} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', border: '1px solid #d4af37', margin: '15px 0' }} placeholder="Contraseña Sorteo" required />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={onVolver} style={{ background: '#374151', padding: '10px 20px', border: 'none', color: '#fff', borderRadius: 6 }}>Volver</button>
+              <button type="submit" style={{ background: '#d4af37', padding: '10px 20px', border: 'none', flex: 1, fontWeight: 'bold', borderRadius: 6 }}>Ingresar</button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+          
+          <div style={{ background: '#111827', borderRadius: '12px', padding: '20px' }}>
+            <label style={{ color: '#d4af37', fontWeight: 'bold' }}>1. Seleccione la Campaña:</label>
+            <select onChange={e => setRifaSeleccionada(rifas.find(r => r.id === e.target.value))} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginTop: '10px', borderRadius: 6 }}>
+              <option value="">-- Seleccionar Rifa --</option>
+              {rifas.map(r => <option key={r.id} value={r.id}>{r.titulo} ({r.n_al_agua || 2} al agua)</option>)}
+            </select>
+            {rifaSeleccionada && (
+              <p style={{ marginTop: 10 }}>
+                📊 Total boletos confirmados: <strong>{numerosValidos.length}</strong> 
+                {numerosYaGanadores.size > 0 && ` | 🎯 Jugando ahora en tómbola: ${numerosValidos.length - numerosYaGanadores.size} (Excluyendo ${numerosYaGanadores.size} ganadores)`}
+              </p>
+            )}
+          </div>
 
-      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginTop: '20px' }}>
-        <h4 style={{ color: '#d4af37' }}>📋 Registro de la Tanda Actual</h4>
-        {historialExtracciones.map((ext, i) => <div key={i}>{ext.tipo === 'agua' ? '💧 Al Agua: ' : '👑 Ganador: '} {pad(ext.numero)}</div>)}
-      </div>
+          {rifaSeleccionada && (
+            <>
+              <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <label style={{ color: '#d4af37', fontWeight: 'bold' }}>2. Premio a disputar:</label>
+                {premiosDisponibles.length === 0 ? (
+                  <p style={{ color: '#ef4444', marginTop: '10px', fontWeight: 'bold' }}>⚠️ Todos los premios de esta campaña ya fueron sorteados.</p>
+                ) : (
+                  <select 
+                    value={premioSeleccionadoForm} 
+                    onChange={e => setPremioSeleccionadoForm(e.target.value)} 
+                    style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginTop: '10px', borderRadius: 6, border: '1px solid #d4af37' }}
+                  >
+                    {premiosDisponibles.map((p, idx) => <option key={idx} value={p}>{p}</option>)}
+                  </select>
+                )}
+              </div>
 
-      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginTop: '20px' }}>
-        <h4 style={{ color: '#d4af37' }}>🕒 Historial de Tandas Anteriores</h4>
-        {tandasAnteriores.map((t, i) => <div key={i}>{t.premio_nombre} - Ganador: {pad(t.numero_ganador)}</div>)}
-      </div>
+              <div style={{ background: '#0b0f19', border: '3px solid #d4af37', borderRadius: '20px', padding: '40px', textAlign: 'center' }}>
+                <div style={{ fontSize: '100px', fontWeight: '800', margin: '20px 0', fontFamily: 'monospace', textShadow: '0 0 15px rgba(212,175,55,0.4)' }}>{numeroDestacado}</div>
+                <h3 style={{ color: '#d4af37' }}>{estadoAnuncio}</h3>
+                
+                <div style={{ display: 'flex', gap: 15, marginTop: 25, justifyContent: 'center' }}>
+                  <button type="button" onClick={onVolver} disabled={sorteando} style={{ background: '#374151', padding: '10px 20px', border: 'none', color: '#fff', borderRadius: 6 }}>Salir</button>
+                  <button 
+                    disabled={premiosDisponibles.length === 0} 
+                    onClick={ejecutarSorteoEfecto} 
+                    style={{ 
+                      background: premiosDisponibles.length === 0 ? '#4b5563' : '#16a34a', 
+                      color: '#fff', 
+                      padding: '14px 40px', 
+                      border: 'none', 
+                      borderRadius: '30px', 
+                      fontWeight: 'bold', 
+                      cursor: premiosDisponibles.length === 0 ? 'not-allowed' : 'pointer' 
+                    }}
+                  >
+                    {sorteando ? "⏩ Extraer Siguiente" : "🎲 Iniciar Tanda de Extracción"}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ background: '#111827', borderRadius: '12px', padding: '20px' }}>
+                <h4 style={{ color: '#d4af37', marginBottom: 15 }}>📋 Registro de la Tanda Actual {premioActual && `(${premioActual})`}</h4>
+                {historialExtracciones.length === 0 ? (
+                  <p style={{ color: '#666', fontSize: 13 }}>No se han realizado extracciones en esta tanda.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {historialExtracciones.map((ext, idx) => (
+                      <div key={idx} style={{ padding: '12px 16px', borderRadius: '8px', borderLeft: ext.tipo==='agua'?'4px solid #ef4444':'4px solid #22c55e', background: '#1f2937', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                        <div>
+                          <span style={{ fontWeight: 'bold', marginRight: 10, color: ext.tipo==='agua'?'#ef4444':'#22c55e' }}>
+                            {ext.tipo === 'agua' ? "💧 Al Agua:" : "👑 Ganador:"} {pad(ext.numero)}
+                          </span>
+                          <span style={{ color: '#fff', fontWeight: 500 }}>👤 {ext.nombre}</span>
+                        </div>
+                        <span style={{ color: '#aaa', fontSize: '13px', fontFamily: 'monospace' }}>📞 {ext.celular}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginTop: '10px', borderTop: '2px solid #d4af37' }}>
+                <h4 style={{ color: '#d4af37', marginBottom: 15 }}>🕒 Historial de Tandas Anteriores</h4>
+                {tandasAnteriores.length === 0 ? (
+                  <p style={{ color: '#666', fontSize: 13 }}>No hay registros de sorteos previos.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {tandasAnteriores.map((tanda, idx) => (
+                      <div key={tanda.id || idx} style={{ background: '#1f2937', padding: '15px', borderRadius: '8px', borderLeft: '4px solid #d4af37' }}>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#fff', fontSize: '14px' }}>🎁 Premio Sorteado: <span style={{ color: '#d4af37' }}>{tanda.premio_nombre}</span></span>
+                          <span style={{ fontSize: '11px', color: '#888' }}>{tanda.created_at ? new Date(tanda.created_at).toLocaleTimeString('es-CL', {hour: '2-digit', minute:'2-digit'}) : ''}</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {Array.isArray(tanda.numeros_agua) && tanda.numeros_agua.map((num, i) => {
+                            const d = mapaCompradores[Number(num)] || { nombre: "No identificado", celular: "S/N" };
+                            return (
+                              <div key={i} style={{ padding: '8px 12px', borderRadius: '6px', background: '#111827', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#ef4444' }}>💧 Al Agua: <strong>{pad(num)}</strong> <span style={{ color: '#fff', marginLeft: 10, fontWeight: 'normal' }}>— {d.nombre}</span></span>
+                                <span style={{ color: '#888', fontFamily: 'monospace', fontSize: '12px' }}>📞 {d.celular}</span>
+                              </div>
+                            );
+                          })}
+                          
+                          {(() => {
+                            const d = mapaCompradores[Number(tanda.numero_ganador)] || { nombre: "No identificado", celular: "S/N" };
+                            return (
+                              <div style={{ padding: '10px 12px', borderRadius: '6px', background: '#111827', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px dashed #22c55e' }}>
+                                <span style={{ color: '#22c55e', fontWeight: 'bold' }}>👑 Ganador: {pad(tanda.numero_ganador)} <span style={{ color: '#fff', marginLeft: 10, fontWeight: 'bold' }}>🏆 {d.nombre}</span></span>
+                                <span style={{ color: '#fff', fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}>📞 {d.celular}</span>
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </main>
   );
 }
