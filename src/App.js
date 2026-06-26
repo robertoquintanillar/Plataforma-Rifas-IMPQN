@@ -965,7 +965,7 @@ function SorteoView({ onVolver }) {
 
 // ─── PANEL ADMINISTRATIVO PRINCIPAL CORREGIDO ──────────────────────────────────────────
 function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) {
-  const [tab, setTab] = useState("comprobantes"); // Tabs: "comprobantes", "gestionar_rifas", "carga_rapida"
+  const [tab, setTab] = useState("comprobantes");
   const [rifasLocales, setRifasLocales] = useState(listaRifas || []);
   
   const [pedidos, setPedidos] = useState([]);
@@ -1119,7 +1119,8 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
           <h3 style={{ color: navy, marginBottom: 15, fontFamily: "'Playfair Display', serif" }}>⚡ Carga Rápida Presencial (CSV)</h3>
           <p style={{ fontSize: 13, color: "#666", marginBottom: 15 }}>
             Sube un archivo .csv para registrar ventas en efectivo de forma masiva. Se marcarán como <strong>Confirmadas</strong> automáticamente.
-            <br/>Formato requerido por fila: <code>Nombre del Comprador, Numeros separados por guion</code> (Ej: <em>Juan Perez, 12-45-88</em>).
+            <br/>Formato requerido por fila: <code>Nombre del Comprador;Numeros separados por guion</code>.
+            <br/><span style={{ color: rose, fontWeight: "bold" }}>⚠️ Importante:</span> La primera fila debe contener las cabeceras y será ignorada. El separador debe ser punto y coma (;).
           </p>
 
           <div style={{ marginBottom: 20 }}>
@@ -1140,21 +1141,34 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                 if (!rifaSeleccionada) return alert("Seleccione una campaña primero.");
 
                 const text = await file.text();
-                const lineas = text.split('\n').filter(line => line.trim() !== '');
+                // 1. Sanitizar líneas y filtrar vacías
+                const lineas = text.split('\n').map(l => l.trim()).filter(line => line !== '');
                 
                 try {
-                  const payload = lineas.map(linea => {
-                    const [nombre, numerosStr] = linea.split(',');
-                    if (!nombre || !numerosStr) throw new Error(`Fila inválida detectada: ${linea}`);
+                  // 2. Validación de archivo con estructura mínima
+                  if (lineas.length <= 1) throw new Error("El archivo no contiene datos o solo contiene la fila de cabeceras.");
+
+                  // 3. Omitir Fila 0 (Cabeceras)
+                  const lineasDatos = lineas.slice(1);
+                  
+                  const payload = lineasDatos.map((linea, index) => {
+                    // 4. Nuevo Delimitador: Punto y coma (;)
+                    const partes = linea.split(';');
+                    if (partes.length < 2) throw new Error(`Fila ${index + 2} no contiene el delimitador (;): ${linea}`);
+
+                    const nombre = partes[0].trim();
+                    const numerosStr = partes[1].trim();
+
+                    if (!nombre || !numerosStr) throw new Error(`Fila ${index + 2} tiene datos en blanco: ${linea}`);
                     
                     const numerosArray = numerosStr.split('-').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
-                    if(numerosArray.length === 0) throw new Error(`Sin números válidos en la fila: ${linea}`);
+                    if(numerosArray.length === 0) throw new Error(`Sin números válidos en la fila ${index + 2}: ${linea}`);
                     
                     const rifaDestino = rifasLocales.find(r => r.id === rifaSeleccionada);
                     
                     return {
                       rifa_id: rifaSeleccionada,
-                      nombre: nombre.trim(),
+                      nombre: nombre,
                       email: "venta.presencial@impqn.cl",
                       telefono: "+56 9 0000 0000",
                       numeros: numerosArray,
@@ -1164,7 +1178,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                     };
                   });
 
-                  if(window.confirm(`¿Está seguro de procesar e ingresar a la tómbola ${payload.length} registros automáticamente?`)) {
+                  if(window.confirm(`¿Está seguro de procesar e ingresar a la tómbola ${payload.length} registros (omitiendo cabeceras)?`)) {
                     setLoading(true);
                     await db().insertPedidosBulk(payload);
                     alert("✅ Carga masiva exitosa. Los números ya están confirmados.");
@@ -1172,6 +1186,8 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                     await cargarTotalesGlobales();
                     setLoading(false);
                     e.target.value = null; // Reset input
+                  } else {
+                    e.target.value = null;
                   }
                 } catch (error) {
                   alert("❌ Error procesando el archivo CSV: " + error.message);
@@ -1181,12 +1197,13 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
               }} 
             />
             <div style={{ fontSize: "24px", marginBottom: "10px" }}>📁</div>
-            <span style={{ fontWeight: "bold", color: navy }}>Haz clic aquí para seleccionar tu archivo .csv</span>
+            <span style={{ fontWeight: "bold", color: navy }}>Haz clic aquí para seleccionar tu archivo .csv (Separado por ;)</span>
           </label>
         </div>
       )}
 
       {tab === "comprobantes" && (
+        /* ... Se mantiene la lógica exacta de comprobantes ... */
         <>
           <div style={{ background: emerald, color: "#fff", padding: 20, borderRadius: 12, textAlign: "center", marginBottom: 25, boxShadow: "0 4px 15px rgba(26,122,74,0.15)" }}>
             <div style={{ fontSize: "13px", letterSpacing: "1px", opacity: 0.9 }}>💰 RECAUDACIÓN GLOBAL CONSOLIDADA</div>
