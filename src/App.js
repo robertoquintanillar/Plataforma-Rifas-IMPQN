@@ -634,34 +634,33 @@ function SuccessView({ nombre, email, numeros, total, rifaActiva, onReset }) {
 
 // ─── SORTEOS CON IDENTIFICACIÓN DE COMPRADORES ───────────────────────────────
 function SorteoView({ onVolver }) {
-  const [rifaSeleccionada, setRifaSeleccionada] = useState(null);
   const [rifas, setRifas] = useState([]);
+  const [rifaSeleccionada, setRifaSeleccionada] = useState(null);
   const [numerosValidos, setNumerosValidos] = useState([]);
   const [premioSeleccionadoForm, setPremioSeleccionadoForm] = useState("");
   
   const [sorteando, setSorteando] = useState(false);
-  const [pasoActual, setPasoActual] = useState(0); 
+  const [pasoActual, setPasoActual] = useState(0);
   const [pozoActual, setPozoActual] = useState([]);
   const [premioActual, setPremioActual] = useState("");
 
   const [numeroDestacado, setNumeroDestacado] = useState("----");
   const [estadoAnuncio, setEstadoAnuncio] = useState("Esperando inicio...");
   const [numerosYaGanadores, setNumerosYaGanadores] = useState(new Set());
+  const [historialExtracciones, setHistorialExtracciones] = useState([]);
+  const [tandasAnteriores, setTandasAnteriores] = useState([]);
 
-  useEffect(() => { 
-    db().getRifas().then(setRifas).catch(console.error); 
-  }, []);
+  useEffect(() => { db().getRifas().then(setRifas).catch(console.error); }, []);
 
   const cargarHistorialSorteos = useCallback((rifaId) => {
     const url = CONFIG.supabaseUrl;
     const key = CONFIG.supabaseKey;
     const h = { "apikey": key, "Authorization": `Bearer ${key}` };
-
     fetch(`${url}/rest/v1/sorteos_log?rifa_id=eq.${rifaId}&order=created_at.desc`, { headers: h })
       .then(r => r.json())
       .then(logs => {
-        const yaGanaron = (logs || []).map(log => Number(log.numero_ganador));
-        setNumerosYaGanadores(new Set(yaGanaron));
+        setTandasAnteriores(logs || []);
+        setNumerosYaGanadores(new Set((logs || []).map(log => Number(log.numero_ganador))));
       })
       .catch(console.error);
   }, []);
@@ -670,10 +669,18 @@ function SorteoView({ onVolver }) {
     if (rifaSeleccionada) {
       db().getNumerosConfirmadosParaSorteo(rifaSeleccionada.id).then(setNumerosValidos).catch(console.error);
       cargarHistorialSorteos(rifaSeleccionada.id);
-      const disponibles = (rifaSeleccionada.premios || []);
-      setPremioSeleccionadoForm(disponibles[0] || "");
+      setPremioSeleccionadoForm(rifaSeleccionada.premios?.[0] || "");
     }
   }, [rifaSeleccionada, cargarHistorialSorteos]);
+
+  const lanzarFuegos = () => {
+    const fin = Date.now() + 3 * 1000;
+    (function frame() {
+      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#d4af37', '#ffffff'] });
+      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#d4af37', '#ffffff'] });
+      if (Date.now() < fin) requestAnimationFrame(frame);
+    }());
+  };
 
   const ejecutarSorteoPasoAPaso = async () => {
     if (!rifaSeleccionada) return;
@@ -682,7 +689,6 @@ function SorteoView({ onVolver }) {
     if (!sorteando) {
       const listaValidos = Array.from(numerosValidos).filter(n => !numerosYaGanadores.has(n));
       if (listaValidos.length <= nAlAgua) { alert("Números insuficientes."); return; }
-      
       setSorteando(true);
       setPozoActual([...listaValidos].sort(() => Math.random() - 0.5));
       setPremioActual(premioSeleccionadoForm);
@@ -691,21 +697,22 @@ function SorteoView({ onVolver }) {
       setNumeroDestacado("----");
     } else {
       if (pasoActual <= nAlAgua) {
-        setNumeroDestacado(String(pozoActual[pasoActual - 1]));
-        setEstadoAnuncio(`💧 Al Agua (${pasoActual} de ${nAlAgua}) - Presione para seguir`);
+        const num = pozoActual[pasoActual - 1];
+        setHistorialExtracciones(prev => [...prev, { numero: num, tipo: 'agua' }]);
+        setNumeroDestacado(String(num));
+        setEstadoAnuncio(`💧 Al Agua (${pasoActual} de ${nAlAgua})`);
         setPasoActual(pasoActual + 1);
       } else {
         const numGanador = pozoActual[nAlAgua];
+        setHistorialExtracciones(prev => [...prev, { numero: numGanador, tipo: 'ganador' }]);
         setNumeroDestacado(String(numGanador));
         setEstadoAnuncio(`👑 ¡GANADOR DEL ${premioActual.toUpperCase()}!`);
-        
         await db().guardarResultadoSorteo({
           rifa_id: rifaSeleccionada.id, premio_nombre: premioActual, 
           numero_ganador: Number(numGanador), numeros_agua: pozoActual.slice(0, nAlAgua)
         });
-        
         cargarHistorialSorteos(rifaSeleccionada.id);
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        lanzarFuegos();
         setSorteando(false);
         setPasoActual(0);
       }
@@ -714,21 +721,30 @@ function SorteoView({ onVolver }) {
 
   return (
     <main style={{ padding: '20px', maxWidth: '1000px', margin: '40px auto', color: '#ffffff' }}>
-      <select onChange={e => setRifaSeleccionada(rifas.find(r => r.id === e.target.value))} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginBottom: '20px' }}>
-        <option value="">-- Seleccionar Rifa --</option>
-        {rifas.map(r => <option key={r.id} value={r.id}>{r.titulo}</option>)}
-      </select>
+      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+        <label style={{ color: '#d4af37', fontWeight: 'bold' }}>1. Seleccione la Campaña:</label>
+        <select onChange={e => setRifaSeleccionada(rifas.find(r => r.id === e.target.value))} style={{ width: '100%', padding: '12px', background: '#1f2937', color: '#fff', marginTop: '10px', borderRadius: 6 }}>
+          <option value="">-- Seleccionar Rifa --</option>
+          {rifas.map(r => <option key={r.id} value={r.id}>{r.titulo}</option>)}
+        </select>
+      </div>
 
       <div style={{ background: '#0b0f19', border: '3px solid #d4af37', borderRadius: '20px', padding: '40px', textAlign: 'center' }}>
         <div style={{ fontSize: '100px', fontWeight: '800', margin: '20px 0', fontFamily: 'monospace' }}>{numeroDestacado}</div>
         <h3 style={{ color: '#d4af37' }}>{estadoAnuncio}</h3>
-        <button 
-          onClick={ejecutarSorteoPasoAPaso} 
-          disabled={!premioSeleccionadoForm}
-          style={{ background: '#16a34a', padding: '15px 30px', border: 'none', borderRadius: 30, fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}
-        >
+        <button onClick={ejecutarSorteoPasoAPaso} disabled={!premioSeleccionadoForm} style={{ background: '#16a34a', padding: '15px 30px', border: 'none', borderRadius: 30, fontWeight: 'bold', color: '#fff', cursor: 'pointer' }}>
           {sorteando ? "⏩ Extraer Siguiente" : "🎲 Iniciar Nueva Tanda"}
         </button>
+      </div>
+
+      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginTop: '20px' }}>
+        <h4 style={{ color: '#d4af37' }}>📋 Registro de la Tanda Actual</h4>
+        {historialExtracciones.map((ext, i) => <div key={i}>{ext.tipo === 'agua' ? '💧 Al Agua: ' : '👑 Ganador: '} {pad(ext.numero)}</div>)}
+      </div>
+
+      <div style={{ background: '#111827', borderRadius: '12px', padding: '20px', marginTop: '20px' }}>
+        <h4 style={{ color: '#d4af37' }}>🕒 Historial de Tandas Anteriores</h4>
+        {tandasAnteriores.map((t, i) => <div key={i}>{t.premio_nombre} - Ganador: {pad(t.numero_ganador)}</div>)}
       </div>
     </main>
   );
