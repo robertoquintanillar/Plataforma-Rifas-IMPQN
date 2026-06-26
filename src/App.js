@@ -182,8 +182,23 @@ function db() {
         throw new Error("Error al subir comprobante: " + (errorData.message || "400 Bad Request"));
       }
       return `${url}/storage/v1/object/public/comprobantes/${path}`;
-    }
+    },
+
+    async insertPedidosBulk(pedidosArray) {
+      const r = await fetch(`${url}/rest/v1/pedidos`, {
+        method: "POST",
+        headers: { ...h, "Prefer": "return=representation" },
+        body: JSON.stringify(pedidosArray)
+      });
+      if (!r.ok) {
+        const err = await r.json();
+        throw new Error(err.message || "Error en inserción masiva");
+      }
+      return r.json();
+    },
+
   };
+  
 }
 
 // ─── Resend email ─────────────────────────────────────────────────────────────
@@ -950,7 +965,7 @@ function SorteoView({ onVolver }) {
 
 // ─── PANEL ADMINISTRATIVO PRINCIPAL CORREGIDO ──────────────────────────────────────────
 function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) {
-  const [tab, setTab] = useState("comprobantes");
+  const [tab, setTab] = useState("comprobantes"); // Tabs: "comprobantes", "gestionar_rifas", "carga_rapida"
   const [rifasLocales, setRifasLocales] = useState(listaRifas || []);
   
   const [pedidos, setPedidos] = useState([]);
@@ -979,13 +994,10 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
     setLoading(false);
   }, [rifaSeleccionada]);
 
-  // CORRECCIÓN CLAVE: Sincroniza tanto el estado del admin como el catálogo global que ven los clientes
   const refrescarRifas = async () => {
     try { 
       const data = await db().getRifas(); 
-      setRifasLocales(data || []); // Actualiza la vista del admin
-      
-      // CORRECCIÓN AUTOMATIZADA: Actualiza el catálogo global inmediatamente
+      setRifasLocales(data || []); 
       if (onActualizarCatalogoGlobal) {
         onActualizarCatalogoGlobal(data || []);
       }
@@ -1053,7 +1065,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
   const filtrados = pedidos.filter(p => {
     const okF = filtroEstado === "todos" || p.estado === filtroEstado;
     const q = search.toLowerCase();
-    return okF && (!q || p.nombre?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)); // Búsqueda por RUT eliminada
+    return okF && (!q || p.nombre?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q)); 
   });
 
   const paginatedAdmin = filtrados.slice(adminPage * ADMIN_PER_PAGE, (adminPage + 1) * ADMIN_PER_PAGE);
@@ -1071,7 +1083,6 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
     <main style={{ ...S.main, maxWidth: '1200px' }} className="fade">
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Panel Administrativo</h2>
       
-      {/* ─── NAVEGACIÓN DE PESTAÑAS DEL PANEL ─── */}
       <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "25px", flexWrap: "wrap" }}>
         <button 
           onClick={() => setTab("comprobantes")} 
@@ -1090,12 +1101,90 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
           ⚙️ Gestionar Rifas
         </button>
         <button 
+          onClick={() => setTab("carga_rapida")} 
+          style={{ ...S.filtroBtn, background: tab === "carga_rapida" ? CONFIG.colores.primario : "#fff", color: tab === "carga_rapida" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
+        >
+          ⚡ Carga Rápida
+        </button>
+        <button 
           onClick={onNavegarSorteo} 
           style={{ ...S.filtroBtn, background: "#16a34a", color: "#fff", border: "none", padding: "10px 22px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 10px rgba(22,163,74,0.2)" }}
         >
           🎲 Sorteo V2
         </button>
       </div>
+
+      {tab === "carga_rapida" && (
+        <div style={{ background: "#fff", padding: 25, borderRadius: 12, border: "1px solid #e0d9cc" }} className="fade">
+          <h3 style={{ color: navy, marginBottom: 15, fontFamily: "'Playfair Display', serif" }}>⚡ Carga Rápida Presencial (CSV)</h3>
+          <p style={{ fontSize: 13, color: "#666", marginBottom: 15 }}>
+            Sube un archivo .csv para registrar ventas en efectivo de forma masiva. Se marcarán como <strong>Confirmadas</strong> automáticamente.
+            <br/>Formato requerido por fila: <code>Nombre del Comprador, Numeros separados por guion</code> (Ej: <em>Juan Perez, 12-45-88</em>).
+          </p>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: "14px", fontWeight: "bold", color: navy, display: "block", marginBottom: "8px" }}>Campaña Destino:</label>
+            <select value={rifaSeleccionada} onChange={e => setRifaSeleccionada(e.target.value)} style={{ ...S.input, width: "100%", padding: "12px", borderRadius: "8px" }}>
+              {rifasLocales.map(r => <option key={r.id} value={r.id}>{r.titulo} {r.activa ? "" : " (Oculta)"}</option>)}
+            </select>
+          </div>
+
+          <label style={{ ...S.uploadZone, border: `2px dashed ${gold}`, padding: "40px 20px" }}>
+            <input 
+              type="file" 
+              accept=".csv"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                if (!rifaSeleccionada) return alert("Seleccione una campaña primero.");
+
+                const text = await file.text();
+                const lineas = text.split('\n').filter(line => line.trim() !== '');
+                
+                try {
+                  const payload = lineas.map(linea => {
+                    const [nombre, numerosStr] = linea.split(',');
+                    if (!nombre || !numerosStr) throw new Error(`Fila inválida detectada: ${linea}`);
+                    
+                    const numerosArray = numerosStr.split('-').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
+                    if(numerosArray.length === 0) throw new Error(`Sin números válidos en la fila: ${linea}`);
+                    
+                    const rifaDestino = rifasLocales.find(r => r.id === rifaSeleccionada);
+                    
+                    return {
+                      rifa_id: rifaSeleccionada,
+                      nombre: nombre.trim(),
+                      email: "venta.presencial@impqn.cl",
+                      telefono: "+56 9 0000 0000",
+                      numeros: numerosArray,
+                      total: numerosArray.length * (rifaDestino?.precio_por_numero || 0),
+                      estado: "confirmado",
+                      voucher_url: "EFECTIVO_PRESENCIAL"
+                    };
+                  });
+
+                  if(window.confirm(`¿Está seguro de procesar e ingresar a la tómbola ${payload.length} registros automáticamente?`)) {
+                    setLoading(true);
+                    await db().insertPedidosBulk(payload);
+                    alert("✅ Carga masiva exitosa. Los números ya están confirmados.");
+                    await fetchPedidos();
+                    await cargarTotalesGlobales();
+                    setLoading(false);
+                    e.target.value = null; // Reset input
+                  }
+                } catch (error) {
+                  alert("❌ Error procesando el archivo CSV: " + error.message);
+                  setLoading(false);
+                  e.target.value = null;
+                }
+              }} 
+            />
+            <div style={{ fontSize: "24px", marginBottom: "10px" }}>📁</div>
+            <span style={{ fontWeight: "bold", color: navy }}>Haz clic aquí para seleccionar tu archivo .csv</span>
+          </label>
+        </div>
+      )}
 
       {tab === "comprobantes" && (
         <>
@@ -1107,7 +1196,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: "14px", fontWeight: "bold", color: navy, display: "block", marginBottom: "8px" }}>Seleccionar Campaña de Rifa Activa:</label>
             <select value={rifaSeleccionada} onChange={e => { setRifaSeleccionada(e.target.value); setAdminPage(0); }} style={{ ...S.input, width: "100%", padding: "12px", borderRadius: "8px", background: "#fff" }}>
-              {rifasLocales.map(r => <option key={r.id} value={r.id}>{r.titulo}</option>)}
+              {rifasLocales.map(r => <option key={r.id} value={r.id}>{r.titulo} {r.activa ? "" : " (Oculta)"}</option>)}
             </select>
           </div>
 
@@ -1139,7 +1228,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
             </div>
             <div style={S.kpiCard}>
               <span style={{ fontSize: "20px" }}>📈</span>
-              <h4 style={{ color: gold, fontSize: "18px", margin: "5px 0 2px 0" }}>{rifaInfoActual ? `${Math.round(numerosVendidosRifaActual / rifaInfoActual.total_numeros * 100)}%` : "0%"}</h4>
+              <h4 style={{ color: gold, fontSize: "18px", margin: "5px 0 2px 0" }}>{rifaInfoActual && rifaInfoActual.total_numeros > 0 ? `${Math.round(numerosVendidosRifaActual / rifaInfoActual.total_numeros * 100)}%` : "0%"}</h4>
               <span style={{ fontSize: "12px", color: "#666" }}>Avance Rifa</span>
             </div>
           </div>
@@ -1164,7 +1253,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
           </div>
 
           {loading ? (
-            <p style={{ textAlign: "center", color: "#666", padding: 20 }}>Cargando listado de transferencias...</p>
+            <p style={{ textAlign: "center", color: "#666", padding: 20 }}>Cargando listado de transacciones...</p>
           ) : (
             <>
               {filtrados.length === 0 ? (
@@ -1220,7 +1309,7 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
               <div>
                 <label style={{ fontSize: "13px", fontWeight: "bold", color: "#555", display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
                   <input type="checkbox" checked={rifaForm.activa} onChange={e=>setRifaForm({...rifaForm,activa:e.target.checked})} style={{ width: "auto" }}/>
-                  ¿Campaña visible y activa para el público general?
+                  ¿Campaña visible y activa para el público general? (Desmarcar para rifas internas)
                 </label>
               </div>
               
@@ -1252,8 +1341,8 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <strong style={{ fontSize: "16px", color: navy }}>{r.titulo}</strong>
-                      <span style={{ fontSize: "11px", fontWeight: "bold", padding: "2px 6px", borderRadius: "4px", background: r.activa ? "#22c55e22" : "#ef444422", color: r.activa ? "#16a34a" : "#dc2626" }}>
-                        {r.activa ? "Activa" : "Pausada"}
+                      <span style={{ fontSize: "11px", fontWeight: "bold", padding: "2px 6px", borderRadius: "4px", background: r.activa ? "#22c55e22" : "#f59e0b22", color: r.activa ? "#16a34a" : "#d97706" }}>
+                        {r.activa ? "Activa (Pública)" : "Oculta (Interna)"}
                       </span>
                     </div>
                     <p style={{ fontSize: "13px", color: "#666", marginTop: "2px" }}>🎯 Motivo: {r.motivo || "Campaña General"} · 💰 {formatCLP(r.precio_por_numero)} c/u</p>
