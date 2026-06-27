@@ -1084,34 +1084,10 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
       <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Panel Administrativo</h2>
       
       <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "25px", flexWrap: "wrap" }}>
-        <button 
-          onClick={() => setTab("comprobantes")} 
-          style={{ ...S.filtroBtn, background: tab === "comprobantes" ? CONFIG.colores.primario : "#fff", color: tab === "comprobantes" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-        >
-          👁️ Ver Pedidos
-        </button>
-        <button 
-          onClick={() => {
-            setTab("gestionar_rifas");
-            setEditandoId(null);
-            setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true, n_al_agua: 2 });
-          }} 
-          style={{ ...S.filtroBtn, background: tab === "gestionar_rifas" ? CONFIG.colores.primario : "#fff", color: tab === "gestionar_rifas" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-        >
-          ⚙️ Gestionar Rifas
-        </button>
-        <button 
-          onClick={() => setTab("carga_rapida")} 
-          style={{ ...S.filtroBtn, background: tab === "carga_rapida" ? CONFIG.colores.primario : "#fff", color: tab === "carga_rapida" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-        >
-          ⚡ Carga Rápida
-        </button>
-        <button 
-          onClick={onNavegarSorteo} 
-          style={{ ...S.filtroBtn, background: "#16a34a", color: "#fff", border: "none", padding: "10px 22px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 10px rgba(22,163,74,0.2)" }}
-        >
-          🎲 Sorteo V2
-        </button>
+        <button onClick={() => setTab("comprobantes")} style={{ ...S.filtroBtn, background: tab === "comprobantes" ? CONFIG.colores.primario : "#fff", color: tab === "comprobantes" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>👁️ Ver Pedidos</button>
+        <button onClick={() => { setTab("gestionar_rifas"); setEditandoId(null); setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true, n_al_agua: 2 }); }} style={{ ...S.filtroBtn, background: tab === "gestionar_rifas" ? CONFIG.colores.primario : "#fff", color: tab === "gestionar_rifas" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>⚙️ Gestionar Rifas</button>
+        <button onClick={() => setTab("carga_rapida")} style={{ ...S.filtroBtn, background: tab === "carga_rapida" ? CONFIG.colores.primario : "#fff", color: tab === "carga_rapida" ? "#fff" : "#333", border: "1.5px solid #e0d9cc", padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>⚡ Carga Rápida</button>
+        <button onClick={onNavegarSorteo} style={{ ...S.filtroBtn, background: "#16a34a", color: "#fff", border: "none", padding: "10px 22px", borderRadius: "8px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 10px rgba(22,163,74,0.2)" }}>🎲 Sorteo V2</button>
       </div>
 
       {tab === "carga_rapida" && (
@@ -1140,31 +1116,39 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                 if (!file) return;
                 if (!rifaSeleccionada) return alert("Seleccione una campaña primero.");
 
-                const text = await file.text();
-                // 1. Sanitizar líneas y filtrar vacías
-                const lineas = text.split('\n').map(l => l.trim()).filter(line => line !== '');
-                
                 try {
-                  // 2. Validación de archivo con estructura mínima
-                  if (lineas.length <= 1) throw new Error("El archivo no contiene datos o solo contiene la fila de cabeceras.");
+                  const rawText = await file.text();
+                  // ARQUITECTURA DEFENSIVA: Remover Byte Order Mark (\uFEFF) insertado por Excel
+                  const text = rawText.replace(/^\uFEFF/, '');
+                  
+                  const lineas = text.split('\n').map(l => l.trim()).filter(line => line !== '');
+                  
+                  if (lineas.length <= 1) {
+                    throw new Error("El archivo está vacío o solo contiene la cabecera.");
+                  }
 
-                  // 3. Omitir Fila 0 (Cabeceras)
+                  // IGNORAR EXPLÍCITAMENTE LA PRIMERA LÍNEA (ÍNDICE 0)
                   const lineasDatos = lineas.slice(1);
+                  const rifaDestino = rifasLocales.find(r => r.id === rifaSeleccionada);
                   
                   const payload = lineasDatos.map((linea, index) => {
-                    // 4. Nuevo Delimitador: Punto y coma (;)
                     const partes = linea.split(';');
-                    if (partes.length < 2) throw new Error(`Fila ${index + 2} no contiene el delimitador (;): ${linea}`);
+                    
+                    if (partes.length < 2) {
+                      throw new Error(`Error en la línea ${index + 2}: No se encontró el delimitador (;). Contenido: "${linea}"`);
+                    }
 
                     const nombre = partes[0].trim();
                     const numerosStr = partes[1].trim();
 
-                    if (!nombre || !numerosStr) throw new Error(`Fila ${index + 2} tiene datos en blanco: ${linea}`);
+                    if (!nombre || !numerosStr) {
+                      throw new Error(`Error en la línea ${index + 2}: Nombre o números en blanco.`);
+                    }
                     
                     const numerosArray = numerosStr.split('-').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n));
-                    if(numerosArray.length === 0) throw new Error(`Sin números válidos en la fila ${index + 2}: ${linea}`);
-                    
-                    const rifaDestino = rifasLocales.find(r => r.id === rifaSeleccionada);
+                    if(numerosArray.length === 0) {
+                      throw new Error(`Error en la línea ${index + 2}: No se encontraron números válidos.`);
+                    }
                     
                     return {
                       rifa_id: rifaSeleccionada,
@@ -1178,19 +1162,19 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                     };
                   });
 
-                  if(window.confirm(`¿Está seguro de procesar e ingresar a la tómbola ${payload.length} registros (omitiendo cabeceras)?`)) {
+                  if(window.confirm(`¿Procesar e ingresar a la tómbola ${payload.length} registros (omitiendo cabeceras)?`)) {
                     setLoading(true);
                     await db().insertPedidosBulk(payload);
                     alert("✅ Carga masiva exitosa. Los números ya están confirmados.");
                     await fetchPedidos();
                     await cargarTotalesGlobales();
                     setLoading(false);
-                    e.target.value = null; // Reset input
+                    e.target.value = null; 
                   } else {
                     e.target.value = null;
                   }
                 } catch (error) {
-                  alert("❌ Error procesando el archivo CSV: " + error.message);
+                  alert("❌ " + error.message);
                   setLoading(false);
                   e.target.value = null;
                 }
@@ -1251,17 +1235,8 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
           </div>
 
           <div style={{ display: "flex", gap: "10px", marginBottom: "15px", flexWrap: "wrap", alignItems: "center" }}>
-            <input 
-              placeholder="🔍 Buscar por nombre, email de comprador..." 
-              value={search} 
-              onChange={e => { setSearch(e.target.value); setAdminPage(0); }} 
-              style={{ ...S.input, flex: 1, minWidth: "260px" }} 
-            />
-            <select 
-              value={filtroEstado} 
-              onChange={e => { setFiltroEstado(e.target.value); setAdminPage(0); }} 
-              style={{ ...S.input, width: "160px" }}
-            >
+            <input placeholder="🔍 Buscar por nombre, email de comprador..." value={search} onChange={e => { setSearch(e.target.value); setAdminPage(0); }} style={{ ...S.input, flex: 1, minWidth: "260px" }} />
+            <select value={filtroEstado} onChange={e => { setFiltroEstado(e.target.value); setAdminPage(0); }} style={{ ...S.input, width: "160px" }}>
               <option value="todos">Todos ({filtrados.length})</option>
               <option value="pendiente">Pendientes</option>
               <option value="confirmado">Confirmados</option>
@@ -1332,20 +1307,9 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
               
               <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
                 {editandoId && (
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      setEditandoId(null);
-                      setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true, n_al_agua: 2 });
-                    }} 
-                    style={{ ...S.btnPrimary, background: "#6b7280", flex: 1 }}
-                  >
-                    Cancelar Edición
-                  </button>
+                  <button type="button" onClick={() => { setEditandoId(null); setRifaForm({ titulo: "", motivo: "", precio_por_numero: 3000, total_numeros: 2000, fecha_sorteo: "", premios: "", activa: true, n_al_agua: 2 }); }} style={{ ...S.btnPrimary, background: "#6b7280", flex: 1 }}>Cancelar Edición</button>
                 )}
-                <button type="submit" style={{ ...S.btnPrimary, flex: 2 }}>
-                  {editandoId ? "💾 Guardar Cambios" : "⛪ Publicar Nueva Rifa"}
-                </button>
+                <button type="submit" style={{ ...S.btnPrimary, flex: 2 }}>{editandoId ? "💾 Guardar Cambios" : "⛪ Publicar Nueva Rifa"}</button>
               </div>
             </form>
           </div>
@@ -1366,24 +1330,13 @@ function AdminView({ listaRifas, onNavegarSorteo, onActualizarCatalogoGlobal }) 
                     <p style={{ fontSize: "12px", color: "#999", marginTop: "4px" }}>🎁 Premios: {r.premios?.join(" · ")}</p>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
-                    <button 
-                      onClick={() => handleSeleccionarEditar(r)}
-                      style={{ background: "#f3f4f6", border: "1px solid #d1d5db", color: "#374151", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500" }}
-                    >
-                      ✏️ Editar
-                    </button>
-                    <button 
-                      onClick={() => handleEliminarRifa(r.id, r.titulo)}
-                      style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500" }}
-                    >
-                      🗑️ Eliminar
-                    </button>
+                    <button onClick={() => handleSeleccionarEditar(r)} style={{ background: "#f3f4f6", border: "1px solid #d1d5db", color: "#374151", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500" }}>✏️ Editar</button>
+                    <button onClick={() => handleEliminarRifa(r.id, r.titulo)} style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "500" }}>🗑️ Eliminar</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-
         </div>
       )}
     </main>
