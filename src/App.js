@@ -15,12 +15,12 @@ const CONFIG = {
   maxPorPersona: 50,
   nombreIglesia: "Iglesia Metodista Pentecostal de Quinta Normal",
 
-  nombreCuenta: "Margarita del Carmen Alvarez",
-  rutCuenta: "9155390-2",
-  banco: "Estado de Chile",
+  nombreCuenta: "Roberto Alejandro Quintanilla Rodríguez",
+  rutCuenta: "13675433-5",
+  banco: "Mercado Pago",
   tipoCuenta: "Vista",
-  numeroCuenta: "9155390",
-  Mail: "margaritaalvarezc@gmail.com",
+  numeroCuenta: "1015890314",
+  Mail: "roberto.quintanilla.r@gmail.com",
   Motivo: "Pago números xxx",
  
   whatsappAdmin: "56992191358",
